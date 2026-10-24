@@ -289,11 +289,28 @@
       letter-spacing: 0.04em;
     }
 
-    /* Photo Preview */
-    .card-preview-image {
+    /* Photo Preview Container & Image - Fits full image perfectly */
+    .card-preview-wrapper {
       width: 100%;
       flex: 1;
-      object-fit: cover;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      overflow: hidden;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.04) 0%, transparent 80%);
+    }
+
+    .card-preview-image {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
       display: block;
     }
 
@@ -630,8 +647,10 @@
         <div id="extBadge" style="display: none;" class="badge-ext">FILE</div>
       </div>
 
-      <!-- Loaded Photo Preview (only for images <= 35MB) -->
-      <img id="previewImg" class="card-preview-image" style="display: none;" alt="Preview" />
+      <!-- Loaded Photo Preview (Fits entire image within bounds with zero cropping) -->
+      <div class="card-preview-wrapper" id="previewWrapper" style="display: none;">
+        <img id="previewImg" class="card-preview-image" alt="Preview" />
+      </div>
 
       <!-- Bottom card footer -->
       <div class="card-footer-bar">
@@ -742,6 +761,7 @@
     const fileInput = document.getElementById('fileInput');
     const cardFileInput = document.getElementById('cardFileInput');
     const cameraInput = document.getElementById('cameraInput');
+    const previewWrapper = document.getElementById('previewWrapper');
     const previewImg = document.getElementById('previewImg');
     const placeholder = document.getElementById('placeholder');
     const cardIcon = document.getElementById('cardIcon');
@@ -817,10 +837,10 @@
         if (file.type.startsWith('image/') && file.size < 35 * 1024 * 1024) {
           activeObjectUrl = URL.createObjectURL(file);
           previewImg.src = activeObjectUrl;
-          previewImg.style.display = 'block';
+          previewWrapper.style.display = 'flex';
           placeholder.style.display = 'none';
         } else {
-          previewImg.style.display = 'none';
+          previewWrapper.style.display = 'none';
           placeholder.style.display = 'flex';
           let iconSymbol = '📄';
           if (file.type.startsWith('video/')) iconSymbol = '🎬';
@@ -844,7 +864,7 @@
         fileName.textContent = `${count} Files Selected`;
         fileHint.textContent = `${totalSizeStr} • Flick to send all`;
 
-        previewImg.style.display = 'none';
+        previewWrapper.style.display = 'none';
         placeholder.style.display = 'flex';
         cardIcon.innerHTML = `<span style="font-size: 36px;">📚</span>`;
         cardTitle.textContent = `${count} Files Ready`;
@@ -1137,7 +1157,7 @@
         URL.revokeObjectURL(activeObjectUrl);
         activeObjectUrl = null;
       }
-      previewImg.style.display = 'none';
+      previewWrapper.style.display = 'none';
       placeholder.style.display = 'flex';
       cardIcon.innerHTML = `
         <svg viewBox="0 0 24 24">
