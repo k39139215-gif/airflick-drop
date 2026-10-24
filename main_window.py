@@ -8,9 +8,21 @@ except Exception:
     pass
 
 import threading
+import subprocess
 import io
 import qrcode
 from PIL import Image
+
+def open_desktop_folder(path):
+    try:
+        if sys.platform == 'win32':
+            os.startfile(path)
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', path])
+        else:
+            subprocess.Popen(['xdg-open', path])
+    except Exception:
+        pass
 
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 from PyQt6.QtGui import QPixmap, QImage, QColor, QFont, QIcon
@@ -28,7 +40,7 @@ class ServerBridge(QObject):
 class AirFlickMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AirFlick Drop • Android to Windows")
+        self.setWindowTitle("AirFlick Drop • Mobile to Desktop")
         self.setFixedSize(480, 680)
         
         self.lan_ip = get_lan_ip()
@@ -124,7 +136,7 @@ class AirFlickMainWindow(QMainWindow):
         qr_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qr_layout.setSpacing(12)
 
-        instr = QLabel("Scan with your Android Camera to connect:", self)
+        instr = QLabel("Scan with iPhone or Android Camera to connect:", self)
         instr.setStyleSheet("color: #94a3b8; font-size: 13px; font-weight: 500;")
         qr_layout.addWidget(instr, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -178,7 +190,7 @@ class AirFlickMainWindow(QMainWindow):
         open_folder_btn.setStyleSheet("""
             background: #1e293b; color: #cbd5e1; font-weight: 600; font-size: 13px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 16px;
         """)
-        open_folder_btn.clicked.connect(lambda: os.startfile(DESKTOP_DIR))
+        open_folder_btn.clicked.connect(lambda: open_desktop_folder(DESKTOP_DIR))
         btn_row.addWidget(open_folder_btn)
 
         layout.addLayout(btn_row)
@@ -193,7 +205,7 @@ class AirFlickMainWindow(QMainWindow):
         layout.addWidget(self.history_list)
 
         # Add initial item
-        init_item = QListWidgetItem("Ready for files. Flick from Android mobile anytime!")
+        init_item = QListWidgetItem("Ready for files. Flick from iPhone or Android anytime!")
         self.history_list.addItem(init_item)
 
     def _generate_qr_code(self):

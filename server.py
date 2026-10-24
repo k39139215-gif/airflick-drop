@@ -30,12 +30,29 @@ app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024 * 1024
 on_file_dropped_callback = None
 
 def bump_file_timestamp(filepath):
-    """Refreshes Modified and Created time to NOW so file jumps to the absolute top of Desktop."""
+    """Refreshes Modified and Created time to NOW so file jumps to the absolute top of Desktop (cross-platform)."""
     try:
         now = time.time()
         os.utime(filepath, (now, now))
-        ps_cmd = f"(Get-Item -LiteralPath '{filepath}').LastWriteTime = Get-Date; (Get-Item -LiteralPath '{filepath}').CreationTime = Get-Date"
-        subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, timeout=2)
+        if sys.platform == 'win32':
+            ps_cmd = f"(Get-Item -LiteralPath '{filepath}').LastWriteTime = Get-Date; (Get-Item -LiteralPath '{filepath}').CreationTime = Get-Date"
+            subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, timeout=2)
+        elif sys.platform == 'darwin':
+            subprocess.run(["touch", "-m", filepath], capture_output=True, timeout=2)
+        else:
+            subprocess.run(["touch", filepath], capture_output=True, timeout=2)
+    except Exception:
+        pass
+
+def reveal_in_file_manager(filepath):
+    """Highlights received file in Windows Explorer, macOS Finder, or Linux file manager."""
+    try:
+        if sys.platform == 'win32':
+            subprocess.Popen(['explorer.exe', f'/select,{filepath}'])
+        elif sys.platform == 'darwin':
+            subprocess.Popen(['open', '-R', filepath])
+        else:
+            subprocess.Popen(['xdg-open', os.path.dirname(filepath)])
     except Exception:
         pass
 
@@ -111,12 +128,9 @@ def upload_file():
 
     print(f"\n[AirFlick Server] [OK] Received & Bumped {len(saved_info)} file(s) to Top of Desktop (Existing: {any_existed})")
 
-    # If already existed, auto-highlight in Explorer
+    # If already existed, auto-highlight in File Manager
     if any_existed and first_path:
-        try:
-            subprocess.Popen(['explorer.exe', f'/select,{first_path}'])
-        except Exception:
-            pass
+        reveal_in_file_manager(first_path)
 
     # Trigger GUI callback
     if on_file_dropped_callback and first_path:
@@ -176,10 +190,7 @@ def upload_chunk_api():
         bump_file_timestamp(target_path)
 
         if already_existed:
-            try:
-                subprocess.Popen(['explorer.exe', f'/select,{target_path}'])
-            except Exception:
-                pass
+            reveal_in_file_manager(target_path)
 
         if on_file_dropped_callback:
             on_file_dropped_callback(target_path, os.path.basename(target_path), 1, already_existed)
