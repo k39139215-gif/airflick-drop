@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="/icon.png">
+  <link rel="apple-touch-icon" href="/icon.png">
+  <title>AirFlick • Flick to Laptop (Up to 15 GB)</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --card-bg: rgba(24, 24, 28, 0.72);
+      --card-border: rgba(255, 255, 255, 0.14);
+      --card-highlight: rgba(255, 255, 255, 0.22);
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.35);
+      --text-primary: #ffffff;
+      --text-secondary: #8e8e93;
+      --text-tertiary: #52525b;
+      --spring-easing: cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      height: 100%;
+      height: 100dvh;
+      background: var(--bg);
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(ellipse 90% 60% at 50% -15%, rgba(120, 119, 198, 0.25), transparent 75%),
+        radial-gradient(ellipse 70% 50% at 50% 115%, rgba(99, 102, 241, 0.18), transparent 75%);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: max(16px, env(safe-area-inset-top));
+      padding-left: clamp(12px, 3vw, 24px);
+      padding-right: clamp(12px, 3vw, 24px);
+      padding-bottom: max(18px, env(safe-area-inset-bottom));
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Ambient Subtle Grid */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+      mask-image: radial-gradient(circle at 50% 45%, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(circle at 50% 45%, black 30%, transparent 80%);
+    }
+
+    /* Top Dynamic Island Pill */
+    .island-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(12, 12, 15, 0.85);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 7px 16px;
+      border-radius: 9999px;
+      box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
+      z-index: 10;
+      transition: all 0.3s var(--spring-easing);
+    }
+
+    .island-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 10px #34d399;
+      animation: pulseGlow 2.5s infinite;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(0.85); opacity: 0.6; }
+    }
+
+    .island-text {
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: #e4e4e7;
+    }
+
+    /* Header Section */
+    .header {
+      text-align: center;
+      margin-top: 4px;
+      z-index: 10;
+    }
+
+    h1 {
+      font-size: clamp(26px, 6.5vw, 34px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.1;
+      color: #ffffff;
+      background: linear-gradient(180deg, #ffffff 40%, #a1a1aa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    p.sub {
+      font-size: clamp(12.5px, 3.2vw, 14px);
+      color: var(--text-secondary);
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      margin-top: 4px;
+    }
+
+    /* Ethereal Directional Indicator */
+    .target-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      margin-top: 6px;
+      opacity: 0.9;
+    }
+
+    .chevron-flick {
+      font-size: 14px;
+      color: #a5b4fc;
+      animation: floatUpward 1.8s infinite ease-in-out;
+      display: inline-block;
+      text-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    @keyframes floatUpward {
+      0% { transform: translateY(2px); opacity: 0.2; }
+      50% { transform: translateY(-7px); opacity: 1; }
+      100% { transform: translateY(2px); opacity: 0.2; }
+    }
+
+    .hint-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #818cf8;
+    }
+
+    /* 3D Stage - fills available vertical space dynamically */
+    .stage {
+      position: relative;
+      width: 100%;
+      max-width: 440px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 1200px;
+      z-index: 10;
+      margin: 6px 0;
+      min-height: 280px;
+    }
+
+    /* Apple Glassmorphic Card (Responsive across all screens) */
+    .apple-card {
+      position: absolute;
+      width: min(315px, 86vw);
+      height: clamp(310px, 46vh, 410px);
+      background: var(--card-bg);
+      backdrop-filter: blur(40px) saturate(200%);
+      -webkit-backdrop-filter: blur(40px) saturate(200%);
+      border-radius: 34px;
+      border: 1px solid var(--card-border);
+      box-shadow: 
+        inset 0 1px 1px 0 var(--card-highlight),
+        0 24px 48px -12px rgba(0, 0, 0, 0.8),
+        0 0 0 1px rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+      cursor: pointer;
+      will-change: transform, opacity;
+      transform-style: preserve-3d;
+      transition: box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .apple-card:active {
+      box-shadow: 
+        inset 0 1px 1px 0 var(--card-highlight),
+        0 32px 64px -8px rgba(99, 102, 241, 0.35),
+        0 0 0 1px rgba(129, 140, 248, 0.4);
+    }
+
+    .apple-card.drag-hover {
+      border-color: #6366f1;
+      box-shadow: 0 0 35px rgba(99, 102, 241, 0.5);
+      transform: scale(1.03);
+    }
+
+    /* Empty / Generic File Card State */
+    .card-empty-content {
+      width: 100%;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: clamp(16px, 4vw, 24px);
+      text-align: center;
+      background: radial-gradient(circle at 50% 40%, rgba(99, 102, 241, 0.08), transparent 75%);
+    }
+
+    .airdrop-icon-ring {
+      width: clamp(64px, 14vw, 76px);
+      height: clamp(64px, 14vw, 76px);
+      border-radius: 50%;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      transition: transform 0.2s var(--spring-easing);
+    }
+
+    .airdrop-icon-ring svg {
+      width: clamp(28px, 6vw, 34px);
+      height: clamp(28px, 6vw, 34px);
+      fill: none;
+      stroke: #ffffff;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.3));
+    }
+
+    .card-title {
+      font-size: clamp(15px, 3.8vw, 18px);
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+      max-width: 90%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-description {
+      font-size: clamp(11px, 2.8vw, 12.5px);
+      color: var(--text-secondary);
+      font-weight: 400;
+      line-height: 1.4;
+      max-width: 85%;
+    }
+
+    .badge-ext {
+      padding: 3px 9px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(99, 102, 241, 0.18);
+      color: #a5b4fc;
+      border: 1px solid rgba(99, 102, 241, 0.3);
+      letter-spacing: 0.04em;
+    }
+
+    /* Photo Preview */
+    .card-preview-image {
+      width: 100%;
+      flex: 1;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Bottom Info Bar inside Card */
+    .card-footer-bar {
+      height: 56px;
+      background: rgba(18, 18, 22, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+    }
+
+    .file-meta {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-width: 82%;
+    }
+
+    .file-name-text {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-hint-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .flick-arrow-pill {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 13px;
+      transition: all 0.2s ease;
+    }
+
+    /* Status Capsule */
+    .status-capsule {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      border-radius: 9999px;
+      background: rgba(24, 24, 27, 0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: -0.01em;
+      min-height: 34px;
+      max-width: min(340px, 92vw);
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.3s var(--spring-easing);
+    }
+
+    .status-capsule.success {
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(52, 211, 153, 0.3);
+      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.2);
+    }
+
+    .status-capsule.error {
+      color: #f87171;
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(248, 113, 113, 0.3);
+    }
+
+    /* Apple Frosted Control Dock pinned nicely at the bottom */
+    .apple-dock {
+      width: 100%;
+      max-width: min(340px, 92vw);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .dock-container {
+      width: 100%;
+      background: rgba(28, 28, 32, 0.65);
+      backdrop-filter: blur(35px) saturate(190%);
+      -webkit-backdrop-filter: blur(35px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+        0 20px 40px -10px rgba(0, 0, 0, 0.7);
+      border-radius: 26px;
+      padding: 5px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .dock-item {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 14px;
+      border-radius: 20px;
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s var(--spring-easing), background 0.15s ease;
+    }
+
+    .dock-item.primary {
+      background: #ffffff;
+      color: #000000;
+      box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
+    }
+
+    .dock-item.primary:active {
+      transform: scale(0.96);
+      background: #e4e4e7;
+    }
+
+    .dock-item.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .dock-item.secondary:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .dock-item svg {
+      width: 17px;
+      height: 17px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Direct Native Full-Coverage Overlay Input (Bypasses all Android/iOS clickjack/synthetic gesture restrictions) */
+    .direct-native-input {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.0001;
+      font-size: 200px;
+      z-index: 50;
+      cursor: pointer;
+      display: block;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Transfer Control HUD (Pause/Resume & Cancel during active upload) */
+    .transfer-hud {
+      position: fixed;
+      bottom: max(18px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) translateY(140px);
+      width: calc(100% - 32px);
+      max-width: 380px;
+      background: rgba(18, 18, 24, 0.94);
+      backdrop-filter: blur(35px) saturate(190%);
+      -webkit-backdrop-filter: blur(35px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 28px;
+      padding: 14px 18px;
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.35s var(--spring-easing), opacity 0.25s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .transfer-hud.visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .transfer-hud-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .transfer-hud-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 65%;
+    }
+
+    .transfer-hud-speed {
+      font-size: 12px;
+      font-weight: 600;
+      color: #34d399;
+    }
+
+    .transfer-hud-track {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .transfer-hud-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1 0%, #34d399 100%);
+      border-radius: 999px;
+      transition: width 0.12s ease;
+    }
+
+    .transfer-hud-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .hud-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .hud-btn.pause {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .hud-btn.pause:active {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .hud-btn.cancel {
+      background: rgba(239, 68, 68, 0.14);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.28);
+    }
+
+    .hud-btn.cancel:active {
+      background: rgba(239, 68, 68, 0.25);
+    }
+
+    @media (min-width: 768px) {
+      .stage {
+        max-width: 520px;
+      }
+      .apple-card {
+        width: 340px;
+        height: 440px;
+      }
+      .apple-dock {
+        max-width: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Dynamic Island Pill -->
+  <div class="island-badge" id="islandBadge">
+    <span class="island-dot"></span>
+    <span class="island-text" id="targetPc">Connected • Offline Ready</span>
+  </div>
+
+  <!-- Header Title -->
+  <div class="header">
+    <h1>AirFlick</h1>
+    <p class="sub">Drag card & flick upward towards laptop screen</p>
+    
+    <div class="target-hint">
+      <span class="chevron-flick">▲</span>
+      <span class="hint-label">Flick to screen</span>
+    </div>
+  </div>
+
+  <!-- Central 3D Stage -->
+  <div class="stage" id="stageContainer">
+    <div class="apple-card" id="flickCard" style="position: relative;">
+      <!-- Direct Native File Input Layer over the card for instant Android response -->
+      <input type="file" id="cardFileInput" class="direct-native-input" accept="*/*" multiple />
+
+      <!-- Empty or Non-image File State -->
+      <div class="card-empty-content" id="placeholder">
+        <div class="airdrop-icon-ring" id="cardIcon">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </div>
+        <div class="card-title" id="cardTitle">Tap to Choose File</div>
+        <div class="card-description" id="cardDesc">Any photo, 4K video, ZIP, APK (Up to 15 GB)</div>
+        <div id="extBadge" style="display: none;" class="badge-ext">FILE</div>
+      </div>
+
+      <!-- Loaded Photo Preview (only for images <= 35MB) -->
+      <img id="previewImg" class="card-preview-image" style="display: none;" alt="Preview" />
+
+      <!-- Bottom card footer -->
+      <div class="card-footer-bar">
+        <div class="file-meta">
+          <div class="file-name-text" id="fileName">No file chosen</div>
+          <div class="file-hint-text" id="fileHint">Up to 15 GB • Zero Lag</div>
+        </div>
+        <div class="flick-arrow-pill">▲</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Frosted Dock -->
+  <div class="apple-dock" id="bottomDock">
+    <div class="status-capsule" id="statusToast">Ready to transfer (up to 15 GB)</div>
+
+    <div class="dock-container">
+      <!-- Direct Native Input on Files button (bypasses all browser restrictions) -->
+      <div class="dock-item primary" id="filesBtn" style="position: relative; overflow: hidden;">
+        <input type="file" id="fileInput" class="direct-native-input" accept="*/*" multiple />
+        <svg viewBox="0 0 24 24">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <polyline points="10 9 9 9 8 9" />
+        </svg>
+        <span>Files</span>
+      </div>
+
+      <!-- Direct Native Input on Camera button -->
+      <div class="dock-item secondary" id="cameraBtn" style="position: relative; overflow: hidden;">
+        <input type="file" id="cameraInput" class="direct-native-input" accept="image/*" capture="environment" />
+        <svg viewBox="0 0 24 24">
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+          <circle cx="12" cy="13" r="3" />
+        </svg>
+        <span>Camera</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transfer Control HUD (Pause/Resume & Cancel during active upload) -->
+  <div class="transfer-hud" id="transferHud">
+    <div class="transfer-hud-header">
+      <span class="transfer-hud-title" id="hudFileName">Uploading file...</span>
+      <span class="transfer-hud-speed" id="hudSpeed">0 MB/s</span>
+    </div>
+    <div class="transfer-hud-track">
+      <div class="transfer-hud-fill" id="hudProgressFill"></div>
+    </div>
+    <div class="transfer-hud-actions">
+      <button class="hud-btn pause" id="hudPauseBtn" onclick="toggleTransferPause()">⏸ Pause</button>
+      <button class="hud-btn cancel" id="hudCancelBtn" onclick="cancelActiveTransfer()">✕ Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // Audio synthesis for native Apple feel
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function playWhooshSound() {
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.22);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.3, now + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.28);
+      } catch (e) {}
+    }
+
+    function playSuccessChime() {
+      try {
+        if (!audioCtx) audioCtx = new AudioContext();
+        const now = audioCtx.currentTime;
+        [587.33, 880.00].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+          gain.gain.setValueAtTime(0.2, now + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.1);
+          osc.stop(now + idx * 0.1 + 0.4);
+        });
+      } catch (e) {}
+    }
+
+    const card = document.getElementById('flickCard');
+    const fileInput = document.getElementById('fileInput');
+    const cardFileInput = document.getElementById('cardFileInput');
+    const cameraInput = document.getElementById('cameraInput');
+    const previewImg = document.getElementById('previewImg');
+    const placeholder = document.getElementById('placeholder');
+    const cardIcon = document.getElementById('cardIcon');
+    const cardTitle = document.getElementById('cardTitle');
+    const cardDesc = document.getElementById('cardDesc');
+    const extBadge = document.getElementById('extBadge');
+    const fileName = document.getElementById('fileName');
+    const fileHint = document.getElementById('fileHint');
+    const statusToast = document.getElementById('statusToast');
+
+    // Transfer HUD elements
+    const transferHud = document.getElementById('transferHud');
+    const hudFileName = document.getElementById('hudFileName');
+    const hudSpeed = document.getElementById('hudSpeed');
+    const hudProgressFill = document.getElementById('hudProgressFill');
+    const hudPauseBtn = document.getElementById('hudPauseBtn');
+
+    let selectedFiles = [];
+    let isDragging = false;
+    let startY = 0;
+    let startX = 0;
+    let currentY = 0;
+    let currentX = 0;
+    let lastTime = 0;
+    let velocityY = 0;
+    let activeObjectUrl = null;
+
+    // Active Transfer State Machine for Pause & Cancel
+    const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks
+    let activeTransfer = {
+      id: null,
+      file: null,
+      chunkIndex: 0,
+      totalChunks: 0,
+      isPaused: false,
+      isCancelled: false,
+      startTime: 0,
+      totalBytes: 0,
+      uploadedBytes: 0,
+      currentXhr: null
+    };
+
+    function formatBytes(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function handleFiles(files) {
+      if (!files || files.length === 0) return;
+
+      selectedFiles = Array.from(files);
+
+      // Hide card input overlay so drag/flick gestures can be captured
+      if (cardFileInput) {
+        cardFileInput.style.display = 'none';
+      }
+
+      if (activeObjectUrl) {
+        URL.revokeObjectURL(activeObjectUrl);
+        activeObjectUrl = null;
+      }
+
+      if (selectedFiles.length === 1) {
+        const file = selectedFiles[0];
+        fileName.textContent = file.name;
+        const sizeStr = formatBytes(file.size);
+        fileHint.textContent = `${sizeStr} • Flick to transfer`;
+
+        const ext = file.name.split('.').pop().toUpperCase();
+
+        if (file.type.startsWith('image/') && file.size < 35 * 1024 * 1024) {
+          activeObjectUrl = URL.createObjectURL(file);
+          previewImg.src = activeObjectUrl;
+          previewImg.style.display = 'block';
+          placeholder.style.display = 'none';
+        } else {
+          previewImg.style.display = 'none';
+          placeholder.style.display = 'flex';
+          let iconSymbol = '📄';
+          if (file.type.startsWith('video/')) iconSymbol = '🎬';
+          else if (file.name.match(/\.(zip|rar|7z|tar|gz)$/i)) iconSymbol = '📦';
+          else if (file.name.match(/\.(mp3|wav|flac|aac)$/i)) iconSymbol = '🎵';
+          else if (file.name.match(/\.(apk)$/i)) iconSymbol = '🤖';
+
+          cardIcon.innerHTML = `<span style="font-size: 36px;">${iconSymbol}</span>`;
+          cardTitle.textContent = file.name;
+          cardDesc.textContent = `${sizeStr} • Ready to flick`;
+          extBadge.textContent = ext || 'FILE';
+          extBadge.style.display = 'inline-block';
+        }
+
+        setStatus(`Ready! Flick card up towards laptop screen`, 'success');
+      } else {
+        const count = selectedFiles.length;
+        const totalBytes = selectedFiles.reduce((acc, f) => acc + f.size, 0);
+        const totalSizeStr = formatBytes(totalBytes);
+
+        fileName.textContent = `${count} Files Selected`;
+        fileHint.textContent = `${totalSizeStr} • Flick to send all`;
+
+        previewImg.style.display = 'none';
+        placeholder.style.display = 'flex';
+        cardIcon.innerHTML = `<span style="font-size: 36px;">📚</span>`;
+        cardTitle.textContent = `${count} Files Ready`;
+        cardDesc.textContent = `${totalSizeStr} total • Zero-lag stream`;
+        extBadge.textContent = `${count} FILES`;
+        extBadge.style.display = 'inline-block';
+
+        setStatus(`Ready! Flick card to transfer all ${count} files`, 'success');
+      }
+
+      resetCardPosition(true);
+    }
+
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    if (cardFileInput) {
+      cardFileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    }
+    cameraInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    // Desktop Drag & Drop file ingestion
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      card.classList.add('drag-hover');
+    });
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-hover');
+    });
+    window.addEventListener('drop', (e) => {
+      e.preventDefault();
+      card.classList.remove('drag-hover');
+      if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+
+    function setStatus(text, type = '') {
+      statusToast.textContent = text;
+      statusToast.className = 'status-capsule ' + type;
+    }
+
+    // Touch & Mouse Flick Gesture Handling
+    function handlePointerStart(x, y) {
+      if (!selectedFiles || selectedFiles.length === 0) return;
+      isDragging = true;
+      startX = x;
+      startY = y;
+      currentX = 0;
+      currentY = 0;
+      lastTime = Date.now();
+      card.style.transition = 'none';
+      if (navigator.vibrate) navigator.vibrate(15);
+    }
+
+    function handlePointerMove(x, y) {
+      if (!isDragging) return;
+      const now = Date.now();
+      const dt = now - lastTime;
+      const dy = y - startY;
+      const dx = x - startX;
+
+      if (dt > 0) velocityY = (dy - currentY) / dt;
+      lastTime = now;
+      currentX = dx;
+      currentY = dy;
+
+      const clampedY = currentY > 40 ? currentY * 0.25 : currentY;
+      const tiltX = Math.min(Math.max(-clampedY * 0.08, -12), 12);
+      const tiltY = Math.min(Math.max(dx * 0.08, -15), 15);
+      const scale = 1 - Math.min(Math.abs(clampedY) * 0.0005, 0.12);
+
+      card.style.transform = `perspective(1000px) translate3d(${dx * 0.55}px, ${clampedY}px, 0) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${scale})`;
+    }
+
+    function handlePointerEnd() {
+      if (!isDragging) return;
+      isDragging = false;
+
+      const isFlicked = (currentY < -80) || (velocityY < -0.45 && currentY < -25);
+      if (isFlicked) {
+        triggerFlickFly();
+      } else {
+        resetCardPosition(true);
+      }
+    }
+
+    // Touch events for flicking (only intercepts if file is already loaded)
+    card.addEventListener('touchstart', (e) => {
+      if (selectedFiles.length > 0) {
+        e.preventDefault();
+        const t = e.touches[0];
+        handlePointerStart(t.clientX, t.clientY);
+      }
+    }, { passive: false });
+
+    card.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const t = e.touches[0];
+      handlePointerMove(t.clientX, t.clientY);
+    }, { passive: false });
+
+    card.addEventListener('touchend', () => handlePointerEnd());
+
+    // Mouse drag events for Desktop/Laptop browsers
+    card.addEventListener('mousedown', (e) => {
+      if (selectedFiles.length === 0) return;
+      e.preventDefault();
+      handlePointerStart(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      handlePointerMove(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('mouseup', () => handlePointerEnd());
+
+    // Trigger Flick and start chunked stream with Pause & Cancel
+    function triggerFlickFly() {
+      playWhooshSound();
+      if (navigator.vibrate) navigator.vibrate([20, 40]);
+
+      card.style.transition = 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
+      card.style.transform = `perspective(1000px) translate3d(${currentX * 1.4}px, -780px, 100px) rotateX(25deg) scale(0.6)`;
+      card.style.opacity = '0';
+
+      const file = selectedFiles[0];
+      const transferId = 'af_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+      activeTransfer = {
+        id: transferId,
+        file: file,
+        chunkIndex: 0,
+        totalChunks: totalChunks,
+        isPaused: false,
+        isCancelled: false,
+        startTime: Date.now(),
+        totalBytes: file.size,
+        uploadedBytes: 0,
+        currentXhr: null
+      };
+
+      // Show Transfer Control HUD
+      hudFileName.textContent = file.name;
+      hudSpeed.textContent = 'Starting...';
+      hudProgressFill.style.width = '0%';
+      hudPauseBtn.textContent = '⏸ Pause';
+      transferHud.classList.add('visible');
+
+      setStatus(`Streaming "${file.name}" to Laptop... 🚀`, 'success');
+      uploadNextChunk();
+    }
+
+    function uploadNextChunk() {
+      if (activeTransfer.isCancelled || activeTransfer.isPaused) return;
+
+      const file = activeTransfer.file;
+      const cIndex = activeTransfer.chunkIndex;
+      const start = cIndex * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunkBlob = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append('transfer_id', activeTransfer.id);
+      formData.append('filename', file.name);
+      formData.append('chunk_index', cIndex);
+      formData.append('total_chunks', activeTransfer.totalChunks);
+      formData.append('chunk', chunkBlob, file.name);
+
+      const xhr = new XMLHttpRequest();
+      activeTransfer.currentXhr = xhr;
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const currentChunkSent = e.loaded;
+          const totalSent = start + currentChunkSent;
+          const percent = Math.min(Math.round((totalSent / file.size) * 100), 99);
+          const elapsed = (Date.now() - activeTransfer.startTime) / 1000;
+          const speedMBps = elapsed > 0 ? ((totalSent / 1024 / 1024) / elapsed).toFixed(1) : '0';
+
+          hudProgressFill.style.width = percent + '%';
+          hudSpeed.textContent = `${speedMBps} MB/s • ${percent}%`;
+          setStatus(`${percent}% • ${speedMBps} MB/s (${formatBytes(totalSent)}/${formatBytes(file.size)})`, 'success');
+        }
+      };
+
+      xhr.onload = () => {
+        if (activeTransfer.isCancelled) return;
+
+        if (xhr.status === 200) {
+          activeTransfer.chunkIndex++;
+          if (activeTransfer.chunkIndex < activeTransfer.totalChunks) {
+            if (!activeTransfer.isPaused && !activeTransfer.isCancelled) {
+              uploadNextChunk();
+            }
+          } else {
+            // Upload Completed!
+            onUploadCompleted(xhr.responseText);
+          }
+        } else {
+          setStatus('Upload error: ' + xhr.statusText, 'error');
+          resetCardPosition(true);
+          transferHud.classList.remove('visible');
+        }
+      };
+
+      xhr.onerror = () => {
+        if (activeTransfer.isCancelled) return;
+        setStatus('Network interrupted', 'error');
+        transferHud.classList.remove('visible');
+        resetCardPosition(true);
+      };
+
+      xhr.open('POST', '/api/upload_chunk', true);
+      xhr.send(formData);
+    }
+
+    function toggleTransferPause() {
+      if (activeTransfer.isPaused) {
+        // Resume
+        activeTransfer.isPaused = false;
+        hudPauseBtn.textContent = '⏸ Pause';
+        hudPauseBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        hudSpeed.textContent = 'Resuming...';
+        setStatus('Resuming transfer... 🚀', 'success');
+        uploadNextChunk();
+      } else {
+        // Pause
+        activeTransfer.isPaused = true;
+        if (activeTransfer.currentXhr) {
+          activeTransfer.currentXhr.abort();
+        }
+        hudPauseBtn.textContent = '▶ Resume';
+        hudPauseBtn.style.background = 'rgba(99, 102, 241, 0.25)';
+        hudSpeed.textContent = '⏸ Paused';
+        setStatus('Transfer Paused ⏸', 'error');
+      }
+    }
+
+    function cancelActiveTransfer() {
+      activeTransfer.isCancelled = true;
+      if (activeTransfer.currentXhr) {
+        activeTransfer.currentXhr.abort();
+      }
+
+      // Notify server to clean up partial file
+      if (activeTransfer.id && activeTransfer.file) {
+        fetch('/api/upload_cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transfer_id: activeTransfer.id, filename: activeTransfer.file.name })
+        }).catch(() => {});
+      }
+
+      transferHud.classList.remove('visible');
+      setStatus('✕ Transfer Cancelled', 'error');
+      resetCardPosition(true);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+
+    function onUploadCompleted(responseJson) {
+      hudProgressFill.style.width = '100%';
+      hudSpeed.textContent = '✓ 100%';
+      playSuccessChime();
+
+      let isBumped = false;
+      try {
+        const data = JSON.parse(responseJson);
+        isBumped = data.bumped;
+      } catch(e){}
+
+      if (isBumped) {
+        setStatus('⚡ Refreshed existing file to top of Desktop!', 'success');
+      } else {
+        setStatus(`✓ Dropped "${activeTransfer.file.name}" onto Desktop!`, 'success');
+      }
+
+      if (navigator.vibrate) navigator.vibrate([35, 60, 35]);
+
+      setTimeout(() => {
+        transferHud.classList.remove('visible');
+        resetFileState();
+      }, 1400);
+    }
+
+    function resetFileState() {
+      if (activeObjectUrl) {
+        URL.revokeObjectURL(activeObjectUrl);
+        activeObjectUrl = null;
+      }
+      previewImg.style.display = 'none';
+      placeholder.style.display = 'flex';
+      cardIcon.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      `;
+      cardTitle.textContent = 'Tap to Choose File';
+      cardDesc.textContent = 'Any photo, 4K video, ZIP, APK (Up to 15 GB)';
+      extBadge.style.display = 'none';
+      fileName.textContent = 'Flick another file';
+      fileHint.textContent = 'Multi-select ready • Zero Lag';
+      selectedFiles = [];
+      fileInput.value = '';
+      if (cardFileInput) {
+        cardFileInput.value = '';
+        cardFileInput.style.display = 'block';
+      }
+      cameraInput.value = '';
+      resetCardPosition(true);
+    }
+
+    function resetCardPosition(animate = false) {
+      if (animate) {
+        card.style.transition = 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
+      } else {
+        card.style.transition = 'none';
+      }
+      card.style.transform = 'perspective(1000px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1)';
+      card.style.opacity = '1';
+    }
+
+    // Clean up any stale service workers or offline caches
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      }).catch(() => {});
+    }
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        for (let name of names) {
+          caches.delete(name);
+        }
+      }).catch(() => {});
+    }
+  </script>
+</body>
+</html>
