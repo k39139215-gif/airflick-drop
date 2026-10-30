@@ -25,10 +25,11 @@ def open_desktop_folder(path):
         pass
 
 from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
-from PyQt6.QtGui import QPixmap, QImage, QColor, QFont, QIcon
+from PyQt6.QtGui import QPixmap, QImage, QColor, QFont, QIcon, QAction
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QListWidget, QListWidgetItem, QFrame, QApplication
+    QPushButton, QListWidget, QListWidgetItem, QFrame, QApplication,
+    QSystemTrayIcon, QMenu
 )
 
 from overlay import AirFlickOverlayCard
@@ -43,6 +44,10 @@ class AirFlickMainWindow(QMainWindow):
         self.setWindowTitle("AirFlick Drop • Mobile to Desktop")
         self.setFixedSize(480, 680)
         
+        icon_path = os.path.join(os.path.dirname(__file__), "web", "icon.png")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         self.lan_ip = get_lan_ip()
         self.port = 5050
         self.server_url = f"http://{self.lan_ip}:{self.port}"
@@ -51,8 +56,10 @@ class AirFlickMainWindow(QMainWindow):
         self.bridge.file_received.connect(self.on_file_received)
 
         self.active_overlays = []
+        self.is_quitting = False
 
         self._init_ui()
+        self._init_tray()
         self._start_server_thread()
 
     def _init_ui(self):
@@ -260,8 +267,76 @@ class AirFlickMainWindow(QMainWindow):
 
         self.on_file_received(demo_path, "Demo_AirFlick_Photo.jpg", 1, True)
 
+    def _init_tray(self):
+        icon_path = os.path.join(os.path.dirname(__file__), "web", "icon.png")
+        icon = QIcon(icon_path) if os.path.exists(icon_path) else QIcon()
+        self.tray_icon = QSystemTrayIcon(icon, self)
+        self.tray_icon.setToolTip(f"AirFlick Drop • Ready\n{self.server_url}")
+
+        tray_menu = QMenu()
+        show_action = QAction("Open AirFlick (QR Code)", self)
+        show_action.triggered.connect(self.show_and_activate)
+        tray_menu.addAction(show_action)
+
+        copy_url_action = QAction("Copy Mobile URL", self)
+        copy_url_action.triggered.connect(self.copy_url_to_clipboard)
+        tray_menu.addAction(copy_url_action)
+
+        open_folder_action = QAction("Open Desktop Folder", self)
+        open_folder_action.triggered.connect(lambda: open_desktop_folder(DESKTOP_DIR))
+        tray_menu.addAction(open_folder_action)
+
+        tray_menu.addSeparator()
+
+        quit_action = QAction("Quit AirFlick", self)
+        quit_action.triggered.connect(self.force_quit)
+        tray_menu.addAction(quit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        self.tray_icon.show()
+
+    def show_and_activate(self):
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+
+    def _on_tray_activated(self, reason):
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            if self.isVisible():
+                self.hide()
+            else:
+                self.show_and_activate()
+
+    def copy_url_to_clipboard(self):
+        QApplication.clipboard().setText(self.server_url)
+        if hasattr(self, 'tray_icon') and self.tray_icon:
+            self.tray_icon.showMessage("AirFlick", "Mobile URL copied to clipboard!", QSystemTrayIcon.MessageIcon.Information, 1500)
+
+    def closeEvent(self, event):
+        if self.is_quitting:
+            event.accept()
+        else:
+            event.ignore()
+            self.hide()
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.showMessage(
+                    "AirFlick Drop",
+                    "Running silently in the background. Ready to receive files anytime!",
+                    QSystemTrayIcon.MessageIcon.Information,
+                    2000
+                )
+
+    def force_quit(self):
+        self.is_quitting = True
+        QApplication.quit()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(False)
     window = AirFlickMainWindow()
-    window.show()
+    if "--minimized" in sys.argv or "--startup" in sys.argv:
+        pass
+    else:
+        window.show()
     sys.exit(app.exec())

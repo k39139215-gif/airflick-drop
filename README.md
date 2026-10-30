@@ -56,6 +56,7 @@ airflick-drop/
 ├── server.py           # Flask HTTP server (cross-platform streaming, bump-to-top)
 ├── overlay.py          # Floating drop card overlay animation
 ├── Start_AirFlick.bat  # 1-click launcher for Windows
+├── start_silent.vbs    # Silent background startup launcher (zero CMD popup)
 ├── start_airflick.sh   # 1-click launcher for macOS & Linux
 ├── requirements.txt    # Python dependencies
 ├── qr_code.png         # Project QR Code asset
