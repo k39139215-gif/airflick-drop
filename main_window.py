@@ -1,3 +1,4 @@
+import socket
 import os
 import sys
 
@@ -243,6 +244,12 @@ class AirFlickMainWindow(QMainWindow):
             self._generate_qr_code()
 
     def _start_server_thread(self):
+        # Check if AirFlick server is already active in the background
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', self.port)) == 0:
+                print(f"[AirFlick GUI] Background server is already alive on port {self.port}. Attached cleanly.")
+                return
+
         def server_callback(path, name, count=1, existed=False):
             self.bridge.file_received.emit(path, name, count, existed)
 
