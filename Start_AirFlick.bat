@@ -1,10 +1,28 @@
 @echo off
-title AirFlick Drop - Android to Windows
-cd /d "C:\Users\kartik\.gemini\antigravity\scratch\airflick-drop"
+title AirFlick Drop - Mobile to Desktop
+cd /d "%~dp0"
+
 echo ==============================================================
-echo   AIRFLICK DROP - Android to Windows Gesture File Transfer
+echo   AIRFLICK DROP - Mobile to PC Gesture File Transfer
 echo ==============================================================
 echo.
-echo Starting AirFlick companion and server...
-python main_window.py
-pause
+
+:: Automatically verify and install dependencies if missing
+python -c "import flask, werkzeug, PyQt6, qrcode, PIL" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo [AirFlick] First time run detected! Installing required packages...
+    pip install -r requirements.txt
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to install dependencies. Please ensure Python is installed.
+        pause
+        exit /b 1
+    )
+)
+
+:: Automatically install silent startup on this computer
+python -c "import autostart; autostart.enable_autostart()" >nul 2>&1
+
+:: Launch companion app
+echo [AirFlick] Starting AirFlick companion...
+start "" pythonw main_window.py
+exit

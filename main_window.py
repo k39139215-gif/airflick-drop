@@ -31,12 +31,13 @@ from PyQt6.QtGui import QPixmap, QImage, QColor, QFont, QIcon, QAction
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QListWidget, QListWidgetItem, QFrame, QApplication,
-    QSystemTrayIcon, QMenu
+    QSystemTrayIcon, QMenu, QCheckBox
 )
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 from server import run_server, get_lan_ip, DESKTOP_DIR
 from tunnel import CloudflareTunnel, URL_CACHE_FILE
+from autostart import enable_autostart, disable_autostart, is_autostart_enabled
 
 LOCAL_SERVER_NAME = "airflick_drop_single_instance_lock"
 
@@ -48,7 +49,13 @@ class AirFlickMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("AirFlick Drop • Mobile to Desktop")
-        self.setFixedSize(500, 720)
+        self.setFixedSize(500, 750)
+        
+        # Ensure silent startup is automatically registered on this machine
+        try:
+            enable_autostart()
+        except Exception as e:
+            print(f"[AirFlick] Autostart notice: {e}")
         
         icon_path = os.path.join(os.path.dirname(__file__), "web", "icon.png")
         if os.path.exists(icon_path):
@@ -291,6 +298,35 @@ class AirFlickMainWindow(QMainWindow):
         init_item = QListWidgetItem("Ready for files. Flick from iPhone or Android anytime!")
         self.history_list.addItem(init_item)
 
+        # Automatic Startup Toggle
+        self.autostart_checkbox = QCheckBox("🚀 Launch silently on laptop boot (Zero-Click Startup)", self)
+        self.autostart_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: #94a3b8;
+                font-size: 12px;
+                font-weight: 500;
+                spacing: 8px;
+                margin-top: 4px;
+            }
+            QCheckBox:hover {
+                color: #e2e8f0;
+            }
+            QCheckBox::indicator {
+                width: 16px;
+                height: 16px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                background: #1e293b;
+            }
+            QCheckBox::indicator:checked {
+                background: #6366f1;
+                border: 1px solid #818cf8;
+            }
+        """)
+        self.autostart_checkbox.setChecked(is_autostart_enabled())
+        self.autostart_checkbox.toggled.connect(self._on_autostart_toggled)
+        layout.addWidget(self.autostart_checkbox)
+
         # Initial render of QR
         self.update_active_view()
 
@@ -299,6 +335,16 @@ class AirFlickMainWindow(QMainWindow):
         self.sync_timer.setInterval(3000)
         self.sync_timer.timeout.connect(self.periodic_sync)
         self.sync_timer.start()
+
+    def _on_autostart_toggled(self, checked):
+        if checked:
+            enable_autostart()
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.showMessage("AirFlick Drop", "Silent auto-start on laptop boot ENABLED", QSystemTrayIcon.MessageIcon.Information, 1500)
+        else:
+            disable_autostart()
+            if hasattr(self, 'tray_icon') and self.tray_icon:
+                self.tray_icon.showMessage("AirFlick Drop", "Auto-start on laptop boot DISABLED", QSystemTrayIcon.MessageIcon.Information, 1500)
 
     def switch_mode(self, mode):
         self.current_mode = mode
