@@ -30,31 +30,16 @@ app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024 * 1024
 on_file_dropped_callback = None
 
 def bump_file_timestamp(filepath):
-    """Refreshes Modified and Created time to NOW so file jumps to the absolute top of Desktop (cross-platform)."""
+    """Refreshes Modified time to NOW silently without spawning any console window."""
     try:
         now = time.time()
         os.utime(filepath, (now, now))
-        if sys.platform == 'win32':
-            ps_cmd = f"(Get-Item -LiteralPath '{filepath}').LastWriteTime = Get-Date; (Get-Item -LiteralPath '{filepath}').CreationTime = Get-Date"
-            subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True, timeout=2)
-        elif sys.platform == 'darwin':
-            subprocess.run(["touch", "-m", filepath], capture_output=True, timeout=2)
-        else:
-            subprocess.run(["touch", filepath], capture_output=True, timeout=2)
     except Exception:
         pass
 
 def reveal_in_file_manager(filepath):
-    """Highlights received file in Windows Explorer, macOS Finder, or Linux file manager."""
-    try:
-        if sys.platform == 'win32':
-            subprocess.Popen(['explorer.exe', f'/select,{filepath}'])
-        elif sys.platform == 'darwin':
-            subprocess.Popen(['open', '-R', filepath])
-        else:
-            subprocess.Popen(['xdg-open', os.path.dirname(filepath)])
-    except Exception:
-        pass
+    """Silent - disabled to prevent disruptive window popups."""
+    pass
 
 def get_lan_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

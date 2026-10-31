@@ -1,7 +1,7 @@
-' AirFlick Drop - Silent Background Launcher
-' Starts AirFlick minimized into the System Tray with zero CMD window popups
+' AirFlick Drop - Silent Background Server Launcher
+' Runs the core AirFlick file-receiving server in the background with zero CMD window
 Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 currentDir = fso.GetParentFolderName(WScript.ScriptFullName)
 WshShell.CurrentDirectory = currentDir
-WshShell.Run "pythonw.exe """ & currentDir & "\main_window.py"" --minimized", 0, False
+WshShell.Run "pythonw.exe """ & currentDir & "\server.py""", 0, False

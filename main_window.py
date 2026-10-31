@@ -261,10 +261,14 @@ class AirFlickMainWindow(QMainWindow):
         item = QListWidgetItem(f"{prefix} {file_name} → Desktop")
         self.history_list.insertItem(0, item)
 
-        # Launch floating overlay card
-        overlay = AirFlickOverlayCard(file_path, file_name, file_count, already_existed)
-        self.active_overlays.append(overlay)
-        overlay.play_entrance()
+        # Silent delivery - show gentle tray notification if tray is available
+        if hasattr(self, 'tray_icon') and self.tray_icon:
+            self.tray_icon.showMessage(
+                "AirFlick Drop",
+                f"Received {file_name} on Desktop",
+                QSystemTrayIcon.MessageIcon.Information,
+                1500
+            )
 
     def trigger_demo_flick(self):
         demo_path = os.path.join(os.path.dirname(__file__), "web", "demo_sample.jpg")
