@@ -13,6 +13,7 @@ except Exception:
 
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
+from tunnel import CloudflareTunnel, URL_CACHE_FILE
 
 # Suppress Flask default request logging to keep console clean
 log = logging.getLogger('werkzeug')
@@ -28,6 +29,9 @@ app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024 * 1024
 
 # Callback to notify PyQt GUI
 on_file_dropped_callback = None
+current_tunnel = None
+current_tunnel_url = None
+server_port = 5050
 
 def bump_file_timestamp(filepath):
     """Refreshes Modified time to NOW silently without spawning any console window."""
@@ -59,6 +63,24 @@ def index():
 @app.route("/<path:filename>")
 def static_assets(filename):
     return send_from_directory(WEB_DIR, filename)
+
+@app.route("/api/tunnel_info", methods=["GET"])
+def get_tunnel_info():
+    global current_tunnel_url
+    if not current_tunnel_url and os.path.exists(URL_CACHE_FILE):
+        try:
+            with open(URL_CACHE_FILE, "r", encoding="utf-8") as f:
+                current_tunnel_url = f.read().strip()
+        except Exception:
+            pass
+    lan = get_lan_ip()
+    return jsonify({
+        "status": "online",
+        "tunnel_url": current_tunnel_url,
+        "lan_ip": lan,
+        "lan_url": f"http://{lan}:{server_port}",
+        "port": server_port
+    })
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -208,11 +230,22 @@ def upload_cancel_api():
                 pass
     return jsonify({"status": "cancelled"})
 
-def run_server(callback=None, port=5050):
-    global on_file_dropped_callback
+def run_server(callback=None, port=5050, enable_tunnel=True):
+    global on_file_dropped_callback, current_tunnel, current_tunnel_url, server_port
     on_file_dropped_callback = callback
+    server_port = port
     lan_ip = get_lan_ip()
     print(f"AirFlick HTTP Server running on http://{lan_ip}:{port}")
+    
+    if enable_tunnel:
+        def on_url(url):
+            global current_tunnel_url
+            current_tunnel_url = url
+            print(f"[AirFlick] Public Cloudflare Tunnel Ready: {url}")
+
+        current_tunnel = CloudflareTunnel(port)
+        current_tunnel.start(on_url)
+
     app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False, threaded=True)
 
 if __name__ == "__main__":

@@ -6,3 +6,7 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+bin/
+.tunnel_url
+*.log
+*.tmp
