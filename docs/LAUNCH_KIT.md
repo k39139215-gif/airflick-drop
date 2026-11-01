@@ -18,7 +18,7 @@ A ready-to-publish collection of community launch posts, listings, and distribut
 * **Best Time to Post**: Tuesday or Wednesday at 7:00 AM – 9:00 AM EST (4:30 PM – 6:30 PM IST)
 
 ### Title:
-> `Show HN: AirFlick Drop – Cross-platform file transfer to Windows with zero mobile installs`
+> `Show HN: AirFlick Drop - AirDrop for Windows with zero mobile app installs`
 
 ### Body:
 ```markdown
