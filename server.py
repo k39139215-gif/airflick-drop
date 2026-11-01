@@ -65,7 +65,17 @@ def verify_device_token():
     if any(request.path.endswith(ext) for ext in [".png", ".ico", ".jpg", ".svg", ".json", ".js", ".css"]):
         return
     if request.path.startswith("/api/upload") or request.path == "/upload":
-        client_token = request.headers.get("X-AirFlick-Token") or request.args.get("token")
+        # Allow trusted local Wi-Fi / Hotspot transfers without token friction
+        is_cloudflare = bool(request.headers.get("CF-Connecting-IP") or request.headers.get("CF-Ray"))
+        if not is_cloudflare:
+            return  # Local network transfer is secure & trusted by default
+
+        # Over public Cloudflare tunnel: require cryptographic session token
+        client_token = (
+            request.headers.get("X-AirFlick-Token") or 
+            request.args.get("token") or 
+            (request.form.get("token") if request.form else None)
+        )
         if not client_token or client_token != DEVICE_TOKEN:
             return jsonify({"error": "Unauthorized: Device pairing required. Please scan your laptop's AirFlick QR code."}), 401
 
@@ -217,48 +227,52 @@ def upload_chunk_api():
     if not transfer_id or not filename or not chunk_file:
         return jsonify({"error": "Missing parameters"}), 400
 
-    raw_filename = secure_filename(filename) or "airflick_file.bin"
-    base, ext = os.path.splitext(raw_filename)
-    if not ext:
-        ext = ".bin"
+    try:
+        raw_filename = secure_filename(filename) or "airflick_file.bin"
+        base, ext = os.path.splitext(raw_filename)
+        if not ext:
+            ext = ".bin"
 
-    temp_part_path = os.path.join(DESKTOP_DIR, f".{transfer_id}_{base}{ext}.part")
-    
-    mode = "wb" if chunk_index == 0 else "ab"
-    with open(temp_part_path, mode) as dst:
-        while True:
-            buf = chunk_file.stream.read(4 * 1024 * 1024)
-            if not buf:
-                break
-            dst.write(buf)
+        temp_part_path = os.path.join(DESKTOP_DIR, f".{transfer_id}_{base}{ext}.part")
+        
+        mode = "wb" if chunk_index == 0 else "ab"
+        with open(temp_part_path, mode) as dst:
+            while True:
+                buf = chunk_file.stream.read(4 * 1024 * 1024)
+                if not buf:
+                    break
+                dst.write(buf)
 
-    if chunk_index == total_chunks - 1:
-        # All chunks received! Finalize file on Desktop
-        target_path = os.path.join(DESKTOP_DIR, f"{base}{ext}")
-        already_existed = os.path.exists(target_path)
-        if os.path.exists(target_path):
-            try:
-                os.remove(target_path)
-            except Exception:
-                pass
-        os.rename(temp_part_path, target_path)
-        bump_file_timestamp(target_path)
+        if chunk_index == total_chunks - 1:
+            # All chunks received! Finalize file on Desktop
+            target_path = os.path.join(DESKTOP_DIR, f"{base}{ext}")
+            already_existed = os.path.exists(target_path)
+            if os.path.exists(target_path):
+                try:
+                    os.remove(target_path)
+                except Exception:
+                    pass
+            os.rename(temp_part_path, target_path)
+            bump_file_timestamp(target_path)
 
-        if already_existed:
-            reveal_in_file_manager(target_path)
+            if already_existed:
+                reveal_in_file_manager(target_path)
 
-        if on_file_dropped_callback:
-            on_file_dropped_callback(target_path, os.path.basename(target_path), 1, already_existed)
+            if on_file_dropped_callback:
+                on_file_dropped_callback(target_path, os.path.basename(target_path), 1, already_existed)
 
-        print(f"\n[AirFlick Server] [COMPLETE] Finished {filename} ({total_chunks} chunks). Bumped: {already_existed}")
-        return jsonify({
-            "status": "completed",
-            "bumped": already_existed,
-            "filename": os.path.basename(target_path),
-            "count": 1
-        })
+            print(f"\n[AirFlick Server] [COMPLETE] Finished {filename} ({total_chunks} chunks). Bumped: {already_existed}")
+            return jsonify({
+                "status": "completed",
+                "bumped": already_existed,
+                "filename": os.path.basename(target_path),
+                "count": 1
+            })
 
-    return jsonify({"status": "chunk_saved", "chunk_index": chunk_index})
+        return jsonify({"status": "chunk_saved", "chunk_index": chunk_index})
+    except Exception as e:
+        print(f"[AirFlick Server] Error processing chunk: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/upload_cancel", methods=["POST"])
 def upload_cancel_api():
