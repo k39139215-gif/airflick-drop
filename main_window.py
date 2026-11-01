@@ -36,7 +36,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 from server import run_server, get_lan_ip, DESKTOP_DIR
-from tunnel import CloudflareTunnel, URL_CACHE_FILE
+from tunnel import CloudflareTunnel, URL_CACHE_FILE, sync_endpoint_to_gist
 from autostart import enable_autostart, disable_autostart, is_autostart_enabled
 
 LOCAL_SERVER_NAME = "airflick_drop_single_instance_lock"
@@ -411,6 +411,10 @@ class AirFlickMainWindow(QMainWindow):
 
     def on_tunnel_url_updated(self, url):
         self.tunnel_url = url
+        try:
+            sync_endpoint_to_gist(url)
+        except Exception:
+            pass
         print(f"[AirFlick GUI] Cloudflare HTTPS Tunnel Connected: {url}")
         if self.current_mode == "cloudflare":
             self.update_active_view()
@@ -567,6 +571,7 @@ class AirFlickMainWindow(QMainWindow):
         self.tray_icon.show()
 
     def show_and_activate(self):
+        self.show()
         self.showNormal()
         self.activateWindow()
         self.raise_()

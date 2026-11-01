@@ -47,6 +47,25 @@ def ensure_cloudflared():
         print(f"[Tunnel] Error downloading cloudflared: {e}")
         return None
 
+GIST_ENDPOINT_ID = "13a26c30b2be5b27f84af379b343397a"
+
+def sync_endpoint_to_gist(url):
+    """Silently updates the central Gist endpoint in the background."""
+    def _worker():
+        try:
+            flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" and hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            subprocess.run(
+                ["gh", "gist", "edit", GIST_ENDPOINT_ID, "-f", "endpoint.txt", "-"],
+                input=url.encode("utf-8"),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=flags
+            )
+            print(f"[AirFlick Gist Sync] Successfully synced live endpoint to Gist!")
+        except Exception as e:
+            print(f"[AirFlick Gist Sync] Notice: {e}")
+    threading.Thread(target=_worker, daemon=True).start()
+
 class CloudflareTunnel:
     def __init__(self, port=5050):
         self.port = port
@@ -103,6 +122,7 @@ class CloudflareTunnel:
                                 except Exception:
                                     pass
                                 print(f"\n[AirFlick Cloudflare Tunnel] Live HTTPS URL: {self.public_url}")
+                                sync_endpoint_to_gist(self.public_url)
                                 if self.callback_on_url:
                                     self.callback_on_url(self.public_url)
                 except Exception as e:

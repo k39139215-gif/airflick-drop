@@ -1080,7 +1080,7 @@
         resetCardPosition(true);
       };
 
-      xhr.open('POST', '/api/upload_chunk', true);
+      xhr.open('POST', (apiBase || '') + '/api/upload_chunk', true);
       xhr.send(formData);
     }
 
@@ -1114,7 +1114,7 @@
 
       // Notify server to clean up partial file
       if (activeTransfer.id && activeTransfer.file) {
-        fetch('/api/upload_cancel', {
+        fetch((apiBase || '') + '/api/upload_cancel', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ transfer_id: activeTransfer.id, filename: activeTransfer.file.name })
@@ -1189,6 +1189,30 @@
       card.style.transform = 'perspective(1000px) translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1)';
       card.style.opacity = '1';
     }
+
+    const GIST_ENDPOINT_RAW = "https://gist.githubusercontent.com/k39139215-gif/13a26c30b2be5b27f84af379b343397a/raw/endpoint.txt";
+    let apiBase = "";
+
+    async function initServerConnection() {
+      if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
+          window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
+        apiBase = window.location.origin;
+        return;
+      }
+      try {
+        const res = await fetch(GIST_ENDPOINT_RAW + "?t=" + Date.now(), { cache: "no-store" });
+        if (res.ok) {
+          const liveUrl = (await res.text()).trim();
+          if (liveUrl.startsWith("https://")) {
+            apiBase = liveUrl;
+            console.log("Connected to live laptop endpoint:", apiBase);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not resolve cloud endpoint:", err);
+      }
+    }
+    initServerConnection();
 
     // Clean up any stale service workers or offline caches
     if ('serviceWorker' in navigator) {

@@ -63,7 +63,7 @@ def enable_autostart():
             vbs_content = (
                 f'Set WshShell = CreateObject("WScript.Shell")\n'
                 f'WshShell.CurrentDirectory = "{PROJECT_DIR}"\n'
-                f'WshShell.Run """{pythonw}"" ""{MAIN_WINDOW_PY}"" --startup", 0, False\n'
+                f'WshShell.Run """{pythonw}"" ""{MAIN_WINDOW_PY}"" --startup", 1, False\n'
             )
             with open(vbs_path, "w", encoding="utf-8") as f:
                 f.write(vbs_content)

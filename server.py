@@ -27,6 +27,19 @@ app = Flask(__name__, static_folder=WEB_DIR)
 # 15 GB max file transfer over local Wi-Fi / hotspot
 app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024 * 1024  
 
+@app.after_request
+def enable_cors(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Range'
+    return response
+
+@app.route("/upload", methods=["OPTIONS"])
+@app.route("/api/upload_chunk", methods=["OPTIONS"])
+@app.route("/api/upload_cancel", methods=["OPTIONS"])
+def options_preflight():
+    return ('', 204)  
+
 # Callback to notify PyQt GUI
 on_file_dropped_callback = None
 current_tunnel = None
