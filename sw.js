@@ -1,4 +1,4 @@
-const CACHE_NAME = 'airflick-v3';
+const CACHE_NAME = 'airflick-v4';
 const ASSETS = [
   './',
   './index.html',
