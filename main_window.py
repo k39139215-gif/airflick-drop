@@ -35,7 +35,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
-from server import run_server, get_lan_ip, DESKTOP_DIR
+from server import run_server, get_lan_ip, DESKTOP_DIR, DEVICE_TOKEN
 from tunnel import CloudflareTunnel, URL_CACHE_FILE, sync_endpoint_to_gist
 from autostart import enable_autostart, disable_autostart, is_autostart_enabled
 
@@ -392,13 +392,18 @@ class AirFlickMainWindow(QMainWindow):
             self.tray_icon.setToolTip(f"AirFlick Drop • Ready\n{self.server_url}")
 
     def _generate_qr_code(self, target_url):
+        final_url = target_url
+        if "token=" not in final_url and DEVICE_TOKEN:
+            sep = "&" if "?" in final_url else "?"
+            final_url = f"{final_url}{sep}token={DEVICE_TOKEN}"
+
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=6,
             border=2,
         )
-        qr.add_data(target_url)
+        qr.add_data(final_url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         

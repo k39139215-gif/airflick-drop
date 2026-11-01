@@ -4,6 +4,7 @@ import socket
 import logging
 import time
 import subprocess
+import secrets
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -27,12 +28,46 @@ app = Flask(__name__, static_folder=WEB_DIR)
 # 15 GB max file transfer over local Wi-Fi / hotspot
 app.config['MAX_CONTENT_LENGTH'] = 15 * 1024 * 1024 * 1024  
 
+DEVICE_TOKEN_FILE = os.path.join(PROJECT_DIR, ".device_token")
+
+def get_device_token():
+    if os.path.exists(DEVICE_TOKEN_FILE):
+        try:
+            with open(DEVICE_TOKEN_FILE, "r", encoding="utf-8") as f:
+                t = f.read().strip()
+                if t:
+                    return t
+        except Exception:
+            pass
+    token = secrets.token_hex(4)
+    try:
+        with open(DEVICE_TOKEN_FILE, "w", encoding="utf-8") as f:
+            f.write(token)
+    except Exception:
+        pass
+    return token
+
+DEVICE_TOKEN = get_device_token()
+
 @app.after_request
 def enable_cors(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Range'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With, Range, X-AirFlick-Token'
     return response
+
+@app.before_request
+def verify_device_token():
+    if request.method == "OPTIONS":
+        return
+    if request.path in ["/", "/index.html", "/manifest.json", "/sw.js", "/api/tunnel_info"]:
+        return
+    if any(request.path.endswith(ext) for ext in [".png", ".ico", ".jpg", ".svg", ".json", ".js", ".css"]):
+        return
+    if request.path.startswith("/api/upload") or request.path == "/upload":
+        client_token = request.headers.get("X-AirFlick-Token") or request.args.get("token")
+        if not client_token or client_token != DEVICE_TOKEN:
+            return jsonify({"error": "Unauthorized: Device pairing required. Please scan your laptop's AirFlick QR code."}), 401
 
 @app.route("/upload", methods=["OPTIONS"])
 @app.route("/api/upload_chunk", methods=["OPTIONS"])

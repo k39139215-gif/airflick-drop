@@ -1085,6 +1085,10 @@
       };
 
       xhr.open('POST', (apiBase || '') + '/api/upload_chunk', true);
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
+      const devToken = localStorage.getItem('airflick_token') || '';
+      if (devToken) xhr.setRequestHeader('X-AirFlick-Token', devToken);
       xhr.send(formData);
     }
 
@@ -1118,9 +1122,13 @@
 
       // Notify server to clean up partial file
       if (activeTransfer.id && activeTransfer.file) {
+        const cancelToken = localStorage.getItem('airflick_token') || '';
         fetch((apiBase || '') + '/api/upload_cancel', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-AirFlick-Token': cancelToken
+          },
           body: JSON.stringify({ transfer_id: activeTransfer.id, filename: activeTransfer.file.name })
         }).catch(() => {});
       }
