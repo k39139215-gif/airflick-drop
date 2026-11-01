@@ -178,7 +178,7 @@ Live PWA: https://k39139215-gif.github.io/airflick-drop/
 **Tweet 4 (Links):**
 > 100% free and open-source (MIT License).
 > 
-> 🌐 Web App: https://k39139215-gif.github.io/airflick-drop/
-> 📦 GitHub: https://github.com/k39139215-gif/airflick-drop
+> 📦 GitHub (Windows App): https://github.com/k39139215-gif/airflick-drop
+> 📱 Mobile Web Sender: Auto-pairs instantly when scanning QR code on Windows app!
 > 
 > Star the repo if this solves your mixed phone/PC workflow! ⭐
