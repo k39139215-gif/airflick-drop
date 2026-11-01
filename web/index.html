@@ -803,6 +803,11 @@
       } catch (e) {}
     }
 
+    // Force-delete any stale caches from previous versions so "offline ready" never appears
+    if ('caches' in window) {
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+    }
+
     const card = document.getElementById('flickCard');
     const fileInput = document.getElementById('fileInput');
     const cardFileInput = document.getElementById('cardFileInput');
@@ -1223,7 +1228,7 @@
       setTimeout(() => {
         transferHud.classList.remove('visible');
         resetFileState();
-      }, 1400);
+      }, 400);
     }
 
     function resetFileState() {
@@ -1304,6 +1309,8 @@
               badgeDot.style.background = '#34d399';
               badgeDot.style.boxShadow = '0 0 10px #34d399';
             }
+            // Pre-warm the TLS handshake with the server for 0ms flick latency
+            fetch(apiBase + '/api/tunnel_info', { mode: 'cors', cache: 'no-store' }).catch(() => {});
           }
         }
       } catch (err) {
