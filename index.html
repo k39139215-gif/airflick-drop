@@ -1218,20 +1218,11 @@
     }
     initServerConnection();
 
-    // Clean up any stale service workers or offline caches
+    // Register Service Worker for true offline PWA support
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then((registrations) => {
-        for (let registration of registrations) {
-          registration.unregister();
-        }
-      }).catch(() => {});
-    }
-    if ('caches' in window) {
-      caches.keys().then((names) => {
-        for (let name of names) {
-          caches.delete(name);
-        }
-      }).catch(() => {});
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch((err) => console.log('SW registration note:', err));
+      });
     }
   </script>
 </body>
