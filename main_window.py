@@ -373,16 +373,13 @@ class AirFlickMainWindow(QMainWindow):
         
         self.update_active_view()
 
+    PERMANENT_WEB_URL = "https://k39139215-gif.github.io/airflick-drop/"
+
     def update_active_view(self):
         if self.current_mode == "cloudflare":
-            if self.tunnel_url:
-                self.server_url = self.tunnel_url
-                self.url_label.setText(self.tunnel_url)
-                self._generate_qr_code(self.tunnel_url)
-            else:
-                self.url_label.setText("Connecting secure tunnel...")
-                # Temporarily show LAN QR until tunnel connects
-                self._generate_qr_code(self.lan_url)
+            self.server_url = self.PERMANENT_WEB_URL
+            self.url_label.setText(self.PERMANENT_WEB_URL)
+            self._generate_qr_code(self.PERMANENT_WEB_URL)
         else:
             self.server_url = self.lan_url
             self.url_label.setText(self.lan_url)
@@ -392,18 +389,13 @@ class AirFlickMainWindow(QMainWindow):
             self.tray_icon.setToolTip(f"AirFlick Drop • Ready\n{self.server_url}")
 
     def _generate_qr_code(self, target_url):
-        final_url = target_url
-        if "token=" not in final_url and DEVICE_TOKEN:
-            sep = "&" if "?" in final_url else "?"
-            final_url = f"{final_url}{sep}token={DEVICE_TOKEN}"
-
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=6,
             border=2,
         )
-        qr.add_data(final_url)
+        qr.add_data(target_url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
         

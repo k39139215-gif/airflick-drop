@@ -136,22 +136,6 @@
       transition: all 0.3s var(--spring-easing);
     }
 
-    .desktop-banner {
-      display: none;
-      width: calc(100% - 32px);
-      max-width: 440px;
-      margin: 8px auto 0;
-      padding: 10px 14px;
-      background: rgba(99, 102, 241, 0.14);
-      border: 1px solid rgba(99, 102, 241, 0.35);
-      border-radius: 12px;
-      font-size: 12px;
-      color: #e2e8f0;
-      text-align: center;
-      line-height: 1.45;
-      z-index: 60;
-    }
-
     .island-dot {
       width: 7px;
       height: 7px;
@@ -675,13 +659,8 @@
 
   <!-- Top Dynamic Island Pill -->
   <div class="island-badge" id="islandBadge">
-    <span class="island-dot"></span>
-    <span class="island-text" id="targetPc">Checking pairing...</span>
-  </div>
-
-  <!-- Desktop Notice Banner -->
-  <div class="desktop-banner" id="desktopBanner">
-    📱 <strong>Mobile Sender:</strong> AirFlick flicks files from phone to PC. To pair, scan the QR code shown on your Windows desktop app!
+    <span class="island-dot" id="islandDot"></span>
+    <span class="island-text" id="targetPc">Connected to Windows PC</span>
   </div>
 
   <!-- Header Title -->
@@ -1010,7 +989,8 @@
       if (!isDragging) return;
       isDragging = false;
 
-      const isFlicked = (currentY < -80) || (velocityY < -0.45 && currentY < -25);
+      // Ultra-responsive flick threshold (low resistance, snappy release)
+      const isFlicked = (currentY < -40) || (velocityY < -0.28 && currentY < -15);
       if (isFlicked) {
         triggerFlickFly();
       } else {
@@ -1052,23 +1032,12 @@
 
     // Trigger Flick and start chunked stream with Pause & Cancel
     function triggerFlickFly() {
-      const isLocalHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
-                          window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.');
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
-      const devToken = localStorage.getItem('airflick_token') || '';
-
-      if (!devToken && !isLocalHost) {
-        setStatus('⚠️ Scan the QR code on your Windows PC to pair!', 'error');
-        resetCardPosition(true);
-        return;
-      }
-
       playWhooshSound();
-      if (navigator.vibrate) navigator.vibrate([20, 40]);
+      if (navigator.vibrate) navigator.vibrate([25, 45]);
 
-      card.style.transition = 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
-      card.style.transform = `perspective(1000px) translate3d(${currentX * 1.4}px, -780px, 100px) rotateX(25deg) scale(0.6)`;
+      // Lightning-fast 0.22s spring release
+      card.style.transition = 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.16s ease';
+      card.style.transform = `perspective(1000px) translate3d(${currentX * 1.2}px, -840px, 120px) rotateX(28deg) scale(0.55)`;
       card.style.opacity = '0';
 
       const file = selectedFiles[0];
@@ -1095,7 +1064,7 @@
       hudPauseBtn.textContent = '⏸ Pause';
       transferHud.classList.add('visible');
 
-      setStatus(`Streaming "${file.name}" to Laptop... 🚀`, 'success');
+      setStatus(`Sending "${file.name}"... 🚀`, 'success');
       uploadNextChunk();
     }
 
@@ -1108,17 +1077,12 @@
       const end = Math.min(start + CHUNK_SIZE, file.size);
       const chunkBlob = file.slice(start, end);
 
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
-      const devToken = localStorage.getItem('airflick_token') || '';
-
       const formData = new FormData();
       formData.append('transfer_id', activeTransfer.id);
       formData.append('filename', file.name);
       formData.append('chunk_index', cIndex);
       formData.append('total_chunks', activeTransfer.totalChunks);
       formData.append('chunk', chunkBlob, file.name);
-      if (devToken) formData.append('token', devToken);
 
       const xhr = new XMLHttpRequest();
       activeTransfer.currentXhr = xhr;
@@ -1134,6 +1098,9 @@
           hudProgressFill.style.width = percent + '%';
           hudSpeed.textContent = `${speedMBps} MB/s • ${percent}%`;
           setStatus(`${percent}% • ${speedMBps} MB/s (${formatBytes(totalSent)}/${formatBytes(file.size)})`, 'success');
+
+          const badgeText = document.getElementById('targetPc');
+          if (badgeText) badgeText.textContent = `Streaming ${percent}% • ${speedMBps} MB/s`;
         }
       };
 
@@ -1150,17 +1117,8 @@
             // Upload Completed!
             onUploadCompleted(xhr.responseText);
           }
-        } else if (xhr.status === 401) {
-          setStatus('⚠️ Pairing needed: Scan QR on your Windows screen!', 'error');
-          resetCardPosition(true);
-          transferHud.classList.remove('visible');
-        } else if (xhr.status === 404 || xhr.status === 405) {
-          setStatus('⚠️ Connecting to PC... please flick again in 3s', 'error');
-          resetCardPosition(true);
-          transferHud.classList.remove('visible');
-          initServerConnection();
         } else {
-          setStatus('Upload error: ' + (xhr.statusText || 'Transfer failed'), 'error');
+          setStatus('Upload error: ' + (xhr.statusText || 'Transfer interrupted'), 'error');
           resetCardPosition(true);
           transferHud.classList.remove('visible');
         }
@@ -1168,34 +1126,31 @@
 
       xhr.onerror = () => {
         if (activeTransfer.isCancelled) return;
-        setStatus('Network interrupted • Retrying...', 'error');
+        setStatus('Network interrupted • Tap to retry', 'error');
         transferHud.classList.remove('visible');
         resetCardPosition(true);
       };
 
-      let targetBase = apiBase;
+      let targetBase = apiBase || localStorage.getItem('airflick_api');
       if (!targetBase) {
         if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
             window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
           targetBase = window.location.origin;
-        } else {
-          targetBase = localStorage.getItem('airflick_api') || '';
         }
       }
 
       if (!targetBase && window.location.hostname.includes('github.io')) {
-        setStatus('⚠️ Connecting to PC... please wait 2 seconds', 'error');
+        setStatus('Connecting to Windows PC... please wait a moment', 'error');
         resetCardPosition(true);
         transferHud.classList.remove('visible');
         initServerConnection().then(() => {
-          if (apiBase) setStatus('Connected to PC! Tap file & flick again 🚀', 'success');
+          if (apiBase) setStatus('Connected to PC! Tap & flick again 🚀', 'success');
         });
         return;
       }
 
-      const endpointUrl = (targetBase ? targetBase.replace(/\/+$/, '') : '') + '/api/upload_chunk' + (devToken ? '?token=' + encodeURIComponent(devToken) : '');
+      const endpointUrl = (targetBase ? targetBase.replace(/\/+$/, '') : '') + '/api/upload_chunk';
       xhr.open('POST', endpointUrl, true);
-      if (devToken) xhr.setRequestHeader('X-AirFlick-Token', devToken);
       xhr.send(formData);
     }
 
@@ -1301,7 +1256,7 @@
 
     function resetCardPosition(animate = false) {
       if (animate) {
-        card.style.transition = 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
+        card.style.transition = 'transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease';
       } else {
         card.style.transition = 'none';
       }
@@ -1310,52 +1265,33 @@
     }
 
     const GIST_ENDPOINT_RAW = "https://gist.githubusercontent.com/k39139215-gif/13a26c30b2be5b27f84af379b343397a/raw/endpoint.txt";
-    let apiBase = "";
+    let apiBase = localStorage.getItem('airflick_api') || "";
 
     async function initServerConnection() {
-      // Check Desktop browser vs Mobile
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const desktopBanner = document.getElementById('desktopBanner');
-      if (!isMobile && window.innerWidth > 600 && desktopBanner) {
-        desktopBanner.style.display = 'block';
-      }
-
-      // Check Token Pairing
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('token')) {
-        localStorage.setItem('airflick_token', urlParams.get('token'));
-      }
-      const token = localStorage.getItem('airflick_token');
       const badgeText = document.getElementById('targetPc');
-      const badgeDot = document.querySelector('.island-dot');
+      const badgeDot = document.getElementById('islandDot') || document.querySelector('.island-dot');
 
-      if (!token) {
-        if (badgeText) badgeText.textContent = 'Not Paired • Scan QR on PC';
+      if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
+          window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
+        apiBase = window.location.origin;
+        if (badgeText) badgeText.textContent = 'Connected to Windows PC';
         if (badgeDot) {
-          badgeDot.style.background = '#f59e0b';
-          badgeDot.style.boxShadow = '0 0 10px #f59e0b';
+          badgeDot.style.background = '#34d399';
+          badgeDot.style.boxShadow = '0 0 10px #34d399';
         }
-      } else {
-        if (badgeText) badgeText.textContent = 'Paired with PC • Ready';
+        return;
+      }
+
+      // 0ms instant display if cached endpoint exists
+      if (apiBase) {
+        if (badgeText) badgeText.textContent = 'Connected to Windows PC';
         if (badgeDot) {
           badgeDot.style.background = '#34d399';
           badgeDot.style.boxShadow = '0 0 10px #34d399';
         }
       }
 
-      // Check direct API endpoint in query param
-      if (urlParams.has('api')) {
-        apiBase = urlParams.get('api');
-        localStorage.setItem('airflick_api', apiBase);
-      } else if (localStorage.getItem('airflick_api')) {
-        apiBase = localStorage.getItem('airflick_api');
-      }
-
-      if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
-          window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
-        apiBase = window.location.origin;
-        return;
-      }
+      // Fetch live tunnel endpoint from Gist
       try {
         const res = await fetch(GIST_ENDPOINT_RAW + "?t=" + Date.now(), { cache: "no-store" });
         if (res.ok) {
@@ -1363,11 +1299,15 @@
           if (liveUrl.startsWith("https://")) {
             apiBase = liveUrl;
             localStorage.setItem('airflick_api', apiBase);
-            console.log("Connected to live laptop endpoint:", apiBase);
+            if (badgeText) badgeText.textContent = 'Connected to Windows PC';
+            if (badgeDot) {
+              badgeDot.style.background = '#34d399';
+              badgeDot.style.boxShadow = '0 0 10px #34d399';
+            }
           }
         }
       } catch (err) {
-        console.warn("Could not resolve cloud endpoint:", err);
+        console.warn("Endpoint sync note:", err);
       }
     }
     initServerConnection();
