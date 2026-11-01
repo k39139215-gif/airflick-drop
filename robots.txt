@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://k39139215-gif.github.io/airflick-drop/sitemap.xml
