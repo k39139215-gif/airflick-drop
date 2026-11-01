@@ -1052,12 +1052,14 @@
 
     // Trigger Flick and start chunked stream with Pause & Cancel
     function triggerFlickFly() {
+      const isLocalHost = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
+                          window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.');
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
       const devToken = localStorage.getItem('airflick_token') || '';
 
-      if (!devToken) {
-        setStatus('⚠️ Not Paired: Scan the QR code on your Windows PC first!', 'error');
+      if (!devToken && !isLocalHost) {
+        setStatus('⚠️ Scan the QR code on your Windows PC to pair!', 'error');
         resetCardPosition(true);
         return;
       }
@@ -1106,12 +1108,17 @@
       const end = Math.min(start + CHUNK_SIZE, file.size);
       const chunkBlob = file.slice(start, end);
 
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
+      const devToken = localStorage.getItem('airflick_token') || '';
+
       const formData = new FormData();
       formData.append('transfer_id', activeTransfer.id);
       formData.append('filename', file.name);
       formData.append('chunk_index', cIndex);
       formData.append('total_chunks', activeTransfer.totalChunks);
       formData.append('chunk', chunkBlob, file.name);
+      if (devToken) formData.append('token', devToken);
 
       const xhr = new XMLHttpRequest();
       activeTransfer.currentXhr = xhr;
@@ -1144,9 +1151,14 @@
             onUploadCompleted(xhr.responseText);
           }
         } else if (xhr.status === 401) {
-          setStatus('⚠️ Not paired: Scan the QR code on your Windows PC to pair!', 'error');
+          setStatus('⚠️ Pairing needed: Scan QR on your Windows screen!', 'error');
           resetCardPosition(true);
           transferHud.classList.remove('visible');
+        } else if (xhr.status === 404 || xhr.status === 405) {
+          setStatus('⚠️ Connecting to PC... please flick again in 3s', 'error');
+          resetCardPosition(true);
+          transferHud.classList.remove('visible');
+          initServerConnection();
         } else {
           setStatus('Upload error: ' + (xhr.statusText || 'Transfer failed'), 'error');
           resetCardPosition(true);
@@ -1156,15 +1168,33 @@
 
       xhr.onerror = () => {
         if (activeTransfer.isCancelled) return;
-        setStatus('Network interrupted', 'error');
+        setStatus('Network interrupted • Retrying...', 'error');
         transferHud.classList.remove('visible');
         resetCardPosition(true);
       };
 
-      xhr.open('POST', (apiBase || '') + '/api/upload_chunk', true);
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
-      const devToken = localStorage.getItem('airflick_token') || '';
+      let targetBase = apiBase;
+      if (!targetBase) {
+        if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
+            window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
+          targetBase = window.location.origin;
+        } else {
+          targetBase = localStorage.getItem('airflick_api') || '';
+        }
+      }
+
+      if (!targetBase && window.location.hostname.includes('github.io')) {
+        setStatus('⚠️ Connecting to PC... please wait 2 seconds', 'error');
+        resetCardPosition(true);
+        transferHud.classList.remove('visible');
+        initServerConnection().then(() => {
+          if (apiBase) setStatus('Connected to PC! Tap file & flick again 🚀', 'success');
+        });
+        return;
+      }
+
+      const endpointUrl = (targetBase ? targetBase.replace(/\/+$/, '') : '') + '/api/upload_chunk' + (devToken ? '?token=' + encodeURIComponent(devToken) : '');
+      xhr.open('POST', endpointUrl, true);
       if (devToken) xhr.setRequestHeader('X-AirFlick-Token', devToken);
       xhr.send(formData);
     }
@@ -1313,6 +1343,14 @@
         }
       }
 
+      // Check direct API endpoint in query param
+      if (urlParams.has('api')) {
+        apiBase = urlParams.get('api');
+        localStorage.setItem('airflick_api', apiBase);
+      } else if (localStorage.getItem('airflick_api')) {
+        apiBase = localStorage.getItem('airflick_api');
+      }
+
       if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
           window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
         apiBase = window.location.origin;
@@ -1324,6 +1362,7 @@
           const liveUrl = (await res.text()).trim();
           if (liveUrl.startsWith("https://")) {
             apiBase = liveUrl;
+            localStorage.setItem('airflick_api', apiBase);
             console.log("Connected to live laptop endpoint:", apiBase);
           }
         }
