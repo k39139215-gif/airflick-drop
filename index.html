@@ -136,6 +136,22 @@
       transition: all 0.3s var(--spring-easing);
     }
 
+    .desktop-banner {
+      display: none;
+      width: calc(100% - 32px);
+      max-width: 440px;
+      margin: 8px auto 0;
+      padding: 10px 14px;
+      background: rgba(99, 102, 241, 0.14);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: 12px;
+      font-size: 12px;
+      color: #e2e8f0;
+      text-align: center;
+      line-height: 1.45;
+      z-index: 60;
+    }
+
     .island-dot {
       width: 7px;
       height: 7px;
@@ -660,7 +676,12 @@
   <!-- Top Dynamic Island Pill -->
   <div class="island-badge" id="islandBadge">
     <span class="island-dot"></span>
-    <span class="island-text" id="targetPc">Connected • Offline Ready</span>
+    <span class="island-text" id="targetPc">Checking pairing...</span>
+  </div>
+
+  <!-- Desktop Notice Banner -->
+  <div class="desktop-banner" id="desktopBanner">
+    📱 <strong>Mobile Sender:</strong> AirFlick flicks files from phone to PC. To pair, scan the QR code shown on your Windows desktop app!
   </div>
 
   <!-- Header Title -->
@@ -1031,6 +1052,16 @@
 
     // Trigger Flick and start chunked stream with Pause & Cancel
     function triggerFlickFly() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('token')) localStorage.setItem('airflick_token', urlParams.get('token'));
+      const devToken = localStorage.getItem('airflick_token') || '';
+
+      if (!devToken) {
+        setStatus('⚠️ Not Paired: Scan the QR code on your Windows PC first!', 'error');
+        resetCardPosition(true);
+        return;
+      }
+
       playWhooshSound();
       if (navigator.vibrate) navigator.vibrate([20, 40]);
 
@@ -1112,8 +1143,12 @@
             // Upload Completed!
             onUploadCompleted(xhr.responseText);
           }
+        } else if (xhr.status === 401) {
+          setStatus('⚠️ Not paired: Scan the QR code on your Windows PC to pair!', 'error');
+          resetCardPosition(true);
+          transferHud.classList.remove('visible');
         } else {
-          setStatus('Upload error: ' + xhr.statusText, 'error');
+          setStatus('Upload error: ' + (xhr.statusText || 'Transfer failed'), 'error');
           resetCardPosition(true);
           transferHud.classList.remove('visible');
         }
@@ -1248,6 +1283,36 @@
     let apiBase = "";
 
     async function initServerConnection() {
+      // Check Desktop browser vs Mobile
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const desktopBanner = document.getElementById('desktopBanner');
+      if (!isMobile && window.innerWidth > 600 && desktopBanner) {
+        desktopBanner.style.display = 'block';
+      }
+
+      // Check Token Pairing
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.has('token')) {
+        localStorage.setItem('airflick_token', urlParams.get('token'));
+      }
+      const token = localStorage.getItem('airflick_token');
+      const badgeText = document.getElementById('targetPc');
+      const badgeDot = document.querySelector('.island-dot');
+
+      if (!token) {
+        if (badgeText) badgeText.textContent = 'Not Paired • Scan QR on PC';
+        if (badgeDot) {
+          badgeDot.style.background = '#f59e0b';
+          badgeDot.style.boxShadow = '0 0 10px #f59e0b';
+        }
+      } else {
+        if (badgeText) badgeText.textContent = 'Paired with PC • Ready';
+        if (badgeDot) {
+          badgeDot.style.background = '#34d399';
+          badgeDot.style.boxShadow = '0 0 10px #34d399';
+        }
+      }
+
       if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
           window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
         apiBase = window.location.origin;
