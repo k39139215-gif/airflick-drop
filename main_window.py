@@ -67,7 +67,7 @@ class AirFlickMainWindow(QMainWindow):
         self.lan_url = f"http://{self.lan_ip}:{self.port}"
         self.mdns_url = f"http://{self.hostname}.local:{self.port}"
         self.tunnel_url = None
-        self.current_mode = "cloudflare"  # "cloudflare" or "lan"
+        self.current_mode = "lan"  # Default to high-speed offline Local/Hotspot mode
         self.server_url = self.lan_url
         self.local_tunnel = None
         
@@ -204,15 +204,15 @@ class AirFlickMainWindow(QMainWindow):
         mode_box = QHBoxLayout()
         mode_box.setSpacing(8)
 
-        self.btn_cf_mode = QPushButton("🌐 Cloudflare HTTPS (Universal)", self)
-        self.btn_cf_mode.setProperty("class", "mode-pill-active")
-        self.btn_cf_mode.clicked.connect(lambda: self.switch_mode("cloudflare"))
-        mode_box.addWidget(self.btn_cf_mode)
-
-        self.btn_lan_mode = QPushButton("📶 Local Wi-Fi / Hotspot", self)
-        self.btn_lan_mode.setProperty("class", "mode-pill")
+        self.btn_lan_mode = QPushButton("⚡ Hotspot / Local Wi-Fi (Ultra-Fast)", self)
+        self.btn_lan_mode.setProperty("class", "mode-pill-active")
         self.btn_lan_mode.clicked.connect(lambda: self.switch_mode("lan"))
         mode_box.addWidget(self.btn_lan_mode)
+
+        self.btn_cf_mode = QPushButton("🌐 Cloud Link (Remote)", self)
+        self.btn_cf_mode.setProperty("class", "mode-pill")
+        self.btn_cf_mode.clicked.connect(lambda: self.switch_mode("cloudflare"))
+        mode_box.addWidget(self.btn_cf_mode)
 
         layout.addLayout(mode_box)
 
@@ -224,8 +224,8 @@ class AirFlickMainWindow(QMainWindow):
         qr_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qr_layout.setSpacing(10)
 
-        self.mode_info_badge = QLabel("● HTTPS Secure • Works Across All Networks", self)
-        self.mode_info_badge.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.10); padding: 3px 10px; border-radius: 12px;")
+        self.mode_info_badge = QLabel("● Local Hotspot / Wi-Fi • 0% Internet Data", self)
+        self.mode_info_badge.setStyleSheet("color: #3b82f6; font-size: 12px; font-weight: 600; background: rgba(59, 130, 246, 0.10); padding: 3px 10px; border-radius: 12px;")
         qr_layout.addWidget(self.mode_info_badge, alignment=Qt.AlignmentFlag.AlignCenter)
 
         instr = QLabel("Scan with iPhone or Android Camera to connect:", self)
@@ -329,8 +329,8 @@ class AirFlickMainWindow(QMainWindow):
         self.autostart_checkbox.toggled.connect(self._on_autostart_toggled)
         layout.addWidget(self.autostart_checkbox)
 
-        # Initial render of QR
-        self.update_active_view()
+        # Initial render of QR in Local/Hotspot mode
+        self.switch_mode("lan")
 
         # Background polling timer
         self.sync_timer = QTimer(self)
@@ -369,9 +369,9 @@ class AirFlickMainWindow(QMainWindow):
             self.btn_cf_mode.setStyleSheet("""
                 background: #1e293b; color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 600;
             """)
-            self.mode_info_badge.setText("● Local LAN Mode • High Speed Wi-Fi")
+            self.mode_info_badge.setText("● Local Hotspot / Wi-Fi • 0% Internet Data")
             self.mode_info_badge.setStyleSheet("color: #3b82f6; font-size: 12px; font-weight: 600; background: rgba(59, 130, 246, 0.10); padding: 3px 10px; border-radius: 12px;")
-            self.hint_label.setText("Connect phone to the same Wi-Fi or Hotspot.")
+            self.hint_label.setText("Connect laptop to phone's Hotspot or same Wi-Fi. 0% Data • Max Speed!")
         
         self.update_active_view()
 
