@@ -1287,7 +1287,81 @@
       transferHud.classList.add('visible');
 
       setStatus(`Sending "${file.name}"... 🚀`, 'success');
-      uploadNextChunk();
+
+      // Optimization: Files <= 10MB upload in 1 fast direct stream (0.5s)
+      if (file.size <= 10 * 1024 * 1024) {
+        uploadSingleDirect(file);
+      } else {
+        uploadNextChunk();
+      }
+    }
+
+    function uploadSingleDirect(file) {
+      let targetBase = apiBase || (isLocalEndpoint(window.location.hostname) ? window.location.origin : localStorage.getItem('airflick_api'));
+      if (!targetBase && isLocalEndpoint(window.location.hostname)) {
+        targetBase = window.location.origin;
+      }
+
+      if (!targetBase && window.location.hostname.includes('github.io')) {
+        setStatus('Connecting to Windows PC... please wait a moment', 'error');
+        resetCardPosition(true);
+        transferHud.classList.remove('visible');
+        initServerConnection().then(() => {
+          if (apiBase) setStatus('Connected to PC! Tap & flick again 🚀', 'success');
+        });
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+
+      const xhr = new XMLHttpRequest();
+      activeTransfer.currentXhr = xhr;
+      xhr.timeout = 45000;
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && !activeTransfer.isPaused && !activeTransfer.isCancelled) {
+          const percent = Math.min(Math.round((e.loaded / e.total) * 100), 99);
+          const elapsed = (Date.now() - activeTransfer.startTime) / 1000;
+          const speedMBps = elapsed > 0 ? ((e.loaded / 1024 / 1024) / elapsed).toFixed(1) : '0';
+
+          hudProgressFill.style.width = percent + '%';
+          hudSpeed.textContent = `${speedMBps} MB/s • ${percent}%`;
+          setStatus(`${percent}% • ${speedMBps} MB/s (${formatBytes(e.loaded)}/${formatBytes(e.total)})`, 'success');
+
+          const badgeText = document.getElementById('targetPc');
+          if (badgeText) badgeText.textContent = `Streaming ${percent}% • ${speedMBps} MB/s`;
+        }
+      };
+
+      xhr.onload = () => {
+        if (activeTransfer.isCancelled) return;
+        if (xhr.status === 200) {
+          onUploadCompleted(xhr.responseText);
+        } else {
+          setStatus('Upload error: HTTP ' + xhr.status + ' • Tap to retry', 'error');
+          resetCardPosition(true);
+          transferHud.classList.remove('visible');
+        }
+      };
+
+      xhr.onerror = () => {
+        if (activeTransfer.isCancelled) return;
+        setStatus('Network interrupted • Tap to retry', 'error');
+        resetCardPosition(true);
+        transferHud.classList.remove('visible');
+      };
+
+      xhr.ontimeout = () => {
+        if (activeTransfer.isCancelled) return;
+        setStatus('Upload timed out • Tap to retry', 'error');
+        resetCardPosition(true);
+        transferHud.classList.remove('visible');
+      };
+
+      const endpointUrl = (targetBase ? targetBase.replace(/\/+$/, '') : '') + '/upload';
+      xhr.open('POST', endpointUrl, true);
+      xhr.send(formData);
     }
 
     function isLocalEndpoint(host) {
