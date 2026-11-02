@@ -35,8 +35,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
-from server import run_server, get_lan_ip, DESKTOP_DIR, DEVICE_TOKEN
-from tunnel import CloudflareTunnel, URL_CACHE_FILE, sync_endpoint_to_gist
+from server import run_server, get_lan_ip, start_mdns_broadcast, DESKTOP_DIR, DEVICE_TOKEN
 from autostart import enable_autostart, disable_autostart, is_autostart_enabled
 
 LOCAL_SERVER_NAME = "airflick_drop_single_instance_lock"
@@ -67,20 +66,9 @@ class AirFlickMainWindow(QMainWindow):
         self.lan_url = f"http://{self.lan_ip}:{self.port}"
         self.mdns_url = f"http://{self.hostname}.local:{self.port}"
         self.tunnel_url = None
-        self.current_mode = "lan"  # Default to high-speed offline Local/Hotspot mode
+        self.current_mode = "lan"  # 100% Offline Local & Mobile Hotspot mode
         self.server_url = self.lan_url
         self.local_tunnel = None
-        
-        # Check if cached tunnel URL exists
-        if os.path.exists(URL_CACHE_FILE):
-            try:
-                with open(URL_CACHE_FILE, "r", encoding="utf-8") as f:
-                    cached = f.read().strip()
-                    if cached.startswith("https://"):
-                        self.tunnel_url = cached
-                        self.server_url = self.tunnel_url
-            except Exception:
-                pass
 
         self.bridge = ServerBridge()
         self.bridge.file_received.connect(self.on_file_received)
@@ -200,19 +188,13 @@ class AirFlickMainWindow(QMainWindow):
         header.addWidget(self.status_badge)
         layout.addLayout(header)
 
-        # Mode Selection Row (Cloudflare vs Local LAN)
+        # Mode / Status Banner Row
         mode_box = QHBoxLayout()
         mode_box.setSpacing(8)
 
-        self.btn_lan_mode = QPushButton("⚡ Hotspot / Local Wi-Fi (Ultra-Fast)", self)
-        self.btn_lan_mode.setProperty("class", "mode-pill-active")
-        self.btn_lan_mode.clicked.connect(lambda: self.switch_mode("lan"))
-        mode_box.addWidget(self.btn_lan_mode)
-
-        self.btn_cf_mode = QPushButton("🌐 Cloud Link (Remote)", self)
-        self.btn_cf_mode.setProperty("class", "mode-pill")
-        self.btn_cf_mode.clicked.connect(lambda: self.switch_mode("cloudflare"))
-        mode_box.addWidget(self.btn_cf_mode)
+        self.mode_info_badge = QLabel("⚡ Direct Hotspot & Local Wi-Fi • 0% Mobile Data", self)
+        self.mode_info_badge.setStyleSheet("color: #38bdf8; font-size: 13px; font-weight: 600; background: rgba(56, 189, 248, 0.12); padding: 7px 14px; border-radius: 12px; border: 1px solid rgba(56, 189, 248, 0.25);")
+        mode_box.addWidget(self.mode_info_badge, alignment=Qt.AlignmentFlag.AlignCenter)
 
         layout.addLayout(mode_box)
 
@@ -223,10 +205,6 @@ class AirFlickMainWindow(QMainWindow):
         qr_layout.setContentsMargins(18, 16, 18, 16)
         qr_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qr_layout.setSpacing(10)
-
-        self.mode_info_badge = QLabel("● Local Hotspot / Wi-Fi • 0% Internet Data", self)
-        self.mode_info_badge.setStyleSheet("color: #3b82f6; font-size: 12px; font-weight: 600; background: rgba(59, 130, 246, 0.10); padding: 3px 10px; border-radius: 12px;")
-        qr_layout.addWidget(self.mode_info_badge, alignment=Qt.AlignmentFlag.AlignCenter)
 
         instr = QLabel("Scan with iPhone or Android Camera to connect:", self)
         instr.setStyleSheet("color: #94a3b8; font-size: 13px; font-weight: 500;")
@@ -239,12 +217,12 @@ class AirFlickMainWindow(QMainWindow):
         self.qr_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         qr_layout.addWidget(self.qr_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # URL and Action Row
+        # Primary Live IP URL Row
         url_box = QHBoxLayout()
         url_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         url_box.setSpacing(6)
 
-        self.url_label = QLabel("Connecting secure tunnel...", self)
+        self.url_label = QLabel(self.lan_url, self)
         self.url_label.setStyleSheet("color: #818cf8; font-size: 14px; font-weight: 600; background: rgba(99, 102, 241, 0.12); padding: 6px 12px; border-radius: 8px;")
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         url_box.addWidget(self.url_label)
@@ -263,7 +241,25 @@ class AirFlickMainWindow(QMainWindow):
 
         qr_layout.addLayout(url_box)
 
-        self.hint_label = QLabel("Works on any Wi-Fi, Hotspot, or Mobile Data • Zero white screen!", self)
+        # Permanent mDNS Hostname Row
+        mdns_box = QHBoxLayout()
+        mdns_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        mdns_box.setSpacing(6)
+
+        self.mdns_label = QLabel(f"Permanent Hostname: {self.mdns_url}", self)
+        self.mdns_label.setStyleSheet("color: #a78bfa; font-size: 12px; font-weight: 500; background: rgba(167, 139, 250, 0.10); padding: 4px 10px; border-radius: 6px;")
+        self.mdns_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        mdns_box.addWidget(self.mdns_label)
+
+        copy_mdns_btn = QPushButton("📋", self)
+        copy_mdns_btn.setToolTip("Copy Permanent Hostname")
+        copy_mdns_btn.setStyleSheet("background: rgba(255, 255, 255, 0.06); color: #a78bfa; border-radius: 6px; padding: 4px 8px; font-size: 11px;")
+        copy_mdns_btn.clicked.connect(lambda: self.copy_specific_url(self.mdns_url))
+        mdns_box.addWidget(copy_mdns_btn)
+
+        qr_layout.addLayout(mdns_box)
+
+        self.hint_label = QLabel("Connect Phone & Laptop to Hotspot/Wi-Fi • Zero Data • 100+ MB/s", self)
         self.hint_label.setStyleSheet("color: #64748b; font-size: 11px;")
         qr_layout.addWidget(self.hint_label, alignment=Qt.AlignmentFlag.AlignCenter)
 
@@ -348,45 +344,18 @@ class AirFlickMainWindow(QMainWindow):
             if hasattr(self, 'tray_icon') and self.tray_icon:
                 self.tray_icon.showMessage("AirFlick Drop", "Auto-start on laptop boot DISABLED", QSystemTrayIcon.MessageIcon.Information, 1500)
 
-    def switch_mode(self, mode):
-        self.current_mode = mode
-        if mode == "cloudflare":
-            self.btn_cf_mode.setStyleSheet("""
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #4f46e5);
-                color: #ffffff; border: 1px solid #818cf8; border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 700;
-            """)
-            self.btn_lan_mode.setStyleSheet("""
-                background: #1e293b; color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 600;
-            """)
-            self.mode_info_badge.setText("● HTTPS Secure • Works Across All Networks")
-            self.mode_info_badge.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600; background: rgba(16, 185, 129, 0.10); padding: 3px 10px; border-radius: 12px;")
-            self.hint_label.setText("Works on any Wi-Fi, Hotspot, or Mobile Data • Zero white screen!")
-        else:
-            self.btn_lan_mode.setStyleSheet("""
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #6366f1, stop:1 #4f46e5);
-                color: #ffffff; border: 1px solid #818cf8; border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 700;
-            """)
-            self.btn_cf_mode.setStyleSheet("""
-                background: #1e293b; color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 14px; font-size: 12px; font-weight: 600;
-            """)
-            self.mode_info_badge.setText("● Local Hotspot / Wi-Fi • 0% Internet Data")
-            self.mode_info_badge.setStyleSheet("color: #3b82f6; font-size: 12px; font-weight: 600; background: rgba(59, 130, 246, 0.10); padding: 3px 10px; border-radius: 12px;")
-            self.hint_label.setText("Connect laptop to phone's Hotspot or same Wi-Fi. 0% Data • Max Speed!")
-        
+    def switch_mode(self, mode="lan"):
+        self.current_mode = "lan"
         self.update_active_view()
 
-    PERMANENT_WEB_URL = "https://k39139215-gif.github.io/airflick-drop/"
-
     def update_active_view(self):
-        if self.current_mode == "cloudflare":
-            self.server_url = self.PERMANENT_WEB_URL
-            self.url_label.setText(self.PERMANENT_WEB_URL)
-            self._generate_qr_code(self.PERMANENT_WEB_URL)
-        else:
-            self.server_url = self.lan_url
-            self.url_label.setText(self.lan_url)
-            self.hint_label.setText(f"Same Wi-Fi • Permanent mDNS: {self.mdns_url}")
-            self._generate_qr_code(self.lan_url)
+        self.server_url = self.lan_url
+        self.url_label.setText(self.lan_url)
+        if hasattr(self, 'mdns_label'):
+            self.mdns_label.setText(f"Permanent Hostname: {self.mdns_url}")
+        if hasattr(self, 'hint_label'):
+            self.hint_label.setText("Connect Phone & Laptop to Hotspot/Wi-Fi • Zero Data • 100+ MB/s")
+        self._generate_qr_code(self.lan_url)
 
         if hasattr(self, 'tray_icon') and self.tray_icon:
             self.tray_icon.setToolTip(f"AirFlick Drop • Ready\n{self.server_url}")
@@ -411,57 +380,19 @@ class AirFlickMainWindow(QMainWindow):
 
     def on_tunnel_url_updated(self, url):
         self.tunnel_url = url
-        try:
-            sync_endpoint_to_gist(url)
-        except Exception:
-            pass
-        print(f"[AirFlick GUI] Cloudflare HTTPS Tunnel Connected: {url}")
-        if self.current_mode == "cloudflare":
-            self.update_active_view()
-        if hasattr(self, 'tray_icon') and self.tray_icon:
-            self.tray_icon.showMessage(
-                "AirFlick Drop",
-                f"Cloudflare Tunnel Ready! Flick from anywhere.",
-                QSystemTrayIcon.MessageIcon.Information,
-                1500
-            )
 
     def periodic_sync(self):
-        # 1. Check if LAN IP has changed
+        # 1. Check if LAN IP has changed (e.g. connected to mobile hotspot or switched Wi-Fi)
         current_ip = get_lan_ip()
         if current_ip and current_ip != self.lan_ip:
             print(f"[AirFlick] Network change detected: {self.lan_ip} -> {current_ip}")
             self.lan_ip = current_ip
             self.lan_url = f"http://{self.lan_ip}:{self.port}"
-            if self.current_mode == "lan":
-                self.update_active_view()
-
-        # 2. Check tunnel status via server API or cache file if tunnel_url not yet set
-        if not self.tunnel_url:
-            self._query_server_tunnel_info()
-
-    def _query_server_tunnel_info(self):
-        def query():
+            self.update_active_view()
             try:
-                req = urllib.request.Request(f"http://127.0.0.1:{self.port}/api/tunnel_info", headers={'User-Agent': 'AirFlickGUI'})
-                with urllib.request.urlopen(req, timeout=1.5) as resp:
-                    if resp.status == 200:
-                        data = json.loads(resp.read().decode('utf-8'))
-                        t_url = data.get("tunnel_url")
-                        if t_url and t_url != self.tunnel_url:
-                            self.bridge.tunnel_url_updated.emit(t_url)
+                start_mdns_broadcast(self.port)
             except Exception:
-                # Check cache file
-                if os.path.exists(URL_CACHE_FILE):
-                    try:
-                        with open(URL_CACHE_FILE, "r", encoding="utf-8") as f:
-                            t_url = f.read().strip()
-                            if t_url.startswith("https://") and t_url != self.tunnel_url:
-                                self.bridge.tunnel_url_updated.emit(t_url)
-                    except Exception:
-                        pass
-        t = threading.Thread(target=query, daemon=True)
-        t.start()
+                pass
 
     def _start_server_and_tunnel(self):
         # Check if server is already running
@@ -472,49 +403,28 @@ class AirFlickMainWindow(QMainWindow):
 
         if server_alive:
             print(f"[AirFlick GUI] Server already alive on port {self.port}. Attached cleanly.")
-            self._query_server_tunnel_info()
-            # If server is running but no tunnel is cached, start tunnel companion
-            if not self.tunnel_url:
-                self.local_tunnel = CloudflareTunnel(self.port)
-                self.local_tunnel.start(lambda url: self.bridge.tunnel_url_updated.emit(url))
         else:
             def server_callback(path, name, count=1, existed=False):
                 self.bridge.file_received.emit(path, name, count, existed)
 
-            # Start server (which automatically launches CloudflareTunnel)
+            # Start purely offline local server (enable_tunnel=False)
             t = threading.Thread(
                 target=run_server, 
-                args=(server_callback, self.port, True), 
+                args=(server_callback, self.port, False), 
                 daemon=True
             )
             t.start()
-            
-            # Start tunnel callback listener
-            def check_tunnel_loop():
-                for _ in range(30):
-                    if self.tunnel_url:
-                        break
-                    if os.path.exists(URL_CACHE_FILE):
-                        try:
-                            with open(URL_CACHE_FILE, "r", encoding="utf-8") as f:
-                                u = f.read().strip()
-                                if u.startswith("https://"):
-                                    self.bridge.tunnel_url_updated.emit(u)
-                                    break
-                        except Exception:
-                            pass
-                    threading.Event().wait(1)
-            
-            t_watcher = threading.Thread(target=check_tunnel_loop, daemon=True)
-            t_watcher.start()
 
     def refresh_all_connections(self):
         self.lan_ip = get_lan_ip()
         self.lan_url = f"http://{self.lan_ip}:{self.port}"
-        self._query_server_tunnel_info()
         self.update_active_view()
+        try:
+            start_mdns_broadcast(self.port)
+        except Exception:
+            pass
         if hasattr(self, 'tray_icon') and self.tray_icon:
-            self.tray_icon.showMessage("AirFlick", "Connections refreshed!", QSystemTrayIcon.MessageIcon.Information, 1000)
+            self.tray_icon.showMessage("AirFlick", f"IP Updated: {self.lan_ip}", QSystemTrayIcon.MessageIcon.Information, 1000)
 
     def on_file_received(self, file_path, file_name, file_count=1, already_existed=False):
         prefix = "⚡ [BUMPED TO TOP]" if already_existed else "📁"

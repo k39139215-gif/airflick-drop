@@ -278,12 +278,22 @@ def upload_cancel_api():
                 pass
     return jsonify({"status": "cancelled"})
 
+current_zc = None
+current_service_info = None
+
 def start_mdns_broadcast(port):
     """Broadcasts permanent local hostname (e.g. http://LAPTOP-NAME.local:5050) over Wi-Fi via mDNS."""
+    global current_zc, current_service_info
     try:
         from zeroconf import Zeroconf, ServiceInfo
         hostname = socket.gethostname()
         lan = get_lan_ip()
+        if current_zc:
+            try:
+                current_zc.unregister_all_services()
+                current_zc.close()
+            except Exception:
+                pass
         info = ServiceInfo(
             "_http._tcp.local.",
             f"AirFlick Drop ({hostname})._http._tcp.local.",
@@ -294,13 +304,15 @@ def start_mdns_broadcast(port):
         )
         zc = Zeroconf()
         zc.register_service(info)
-        print(f"[AirFlick mDNS] Registered permanent local hostname: http://{hostname}.local:{port}")
+        current_zc = zc
+        current_service_info = info
+        print(f"[AirFlick mDNS] Registered permanent local hostname: http://{hostname}.local:{port} ({lan})")
         return zc, info
     except Exception as e:
         print(f"[AirFlick mDNS] Notice: {e}")
         return None, None
 
-def run_server(callback=None, port=5050, enable_tunnel=True):
+def run_server(callback=None, port=5050, enable_tunnel=False):
     global on_file_dropped_callback, current_tunnel, current_tunnel_url, server_port
     on_file_dropped_callback = callback
     server_port = port
