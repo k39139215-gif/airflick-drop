@@ -1288,12 +1288,8 @@
 
       setStatus(`Sending "${file.name}"... 🚀`, 'success');
 
-      // Optimization: Files <= 10MB upload in 1 fast direct stream (0.5s)
-      if (file.size <= 10 * 1024 * 1024) {
-        uploadSingleDirect(file);
-      } else {
-        uploadNextChunk();
-      }
+      // Direct high-speed stream for all files (handles photos, PDFs, and 30MB-500MB videos seamlessly)
+      uploadSingleDirect(file);
     }
 
     function uploadSingleDirect(file) {
@@ -1313,11 +1309,18 @@
       }
 
       const formData = new FormData();
-      formData.append('file', file, file.name);
+      if (selectedFiles && selectedFiles.length > 1) {
+        selectedFiles.forEach(f => formData.append('file', f, f.name));
+      } else {
+        formData.append('file', file, file.name);
+      }
 
       const xhr = new XMLHttpRequest();
       activeTransfer.currentXhr = xhr;
-      xhr.timeout = 45000;
+
+      // Generous dynamic timeout: min 2 minutes, plenty of headroom for large videos
+      const dynamicTimeout = Math.max(120000, Math.ceil(file.size / 200000) * 1000);
+      xhr.timeout = dynamicTimeout;
 
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable && !activeTransfer.isPaused && !activeTransfer.isCancelled) {
