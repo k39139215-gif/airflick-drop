@@ -1329,11 +1329,11 @@
           const speedMBps = elapsed > 0 ? ((e.loaded / 1024 / 1024) / elapsed).toFixed(1) : '0';
 
           hudProgressFill.style.width = percent + '%';
-          hudSpeed.textContent = `${speedMBps} MB/s • ${percent}%`;
-          setStatus(`${percent}% • ${speedMBps} MB/s (${formatBytes(e.loaded)}/${formatBytes(e.total)})`, 'success');
+          hudSpeed.textContent = `${speedMBps} MB/s • ${percent}% (Offline Wi-Fi)`;
+          setStatus(`${percent}% • ${speedMBps} MB/s • 0% Mobile Data (${formatBytes(e.loaded)}/${formatBytes(e.total)})`, 'success');
 
           const badgeText = document.getElementById('targetPc');
-          if (badgeText) badgeText.textContent = `Streaming ${percent}% • ${speedMBps} MB/s`;
+          if (badgeText) badgeText.textContent = `Offline Stream • ${percent}% • ${speedMBps} MB/s`;
         }
       };
 
@@ -1598,7 +1598,7 @@
 
       if (isLocalEndpoint(window.location.hostname)) {
         apiBase = window.location.origin;
-        if (badgeText) badgeText.textContent = 'Connected to Windows PC (Local)';
+        if (badgeText) badgeText.textContent = '⚡ Direct Hotspot / Wi-Fi (0% Data)';
         if (badgeDot) {
           badgeDot.style.background = '#34d399';
           badgeDot.style.boxShadow = '0 0 10px #34d399';
@@ -1693,7 +1693,7 @@
     // Register Service Worker for true offline PWA support
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js').catch((err) => console.log('SW registration note:', err));
+        navigator.serviceWorker.register('sw.js?v=10').catch((err) => console.log('SW registration note:', err));
       });
     }
   </script>
