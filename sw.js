@@ -1,4 +1,4 @@
-const CACHE_NAME = 'airflick-v9';
+const CACHE_NAME = 'airflick-v10';
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
