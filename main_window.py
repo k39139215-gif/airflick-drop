@@ -62,8 +62,10 @@ class AirFlickMainWindow(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.lan_ip = get_lan_ip()
+        self.hostname = socket.gethostname()
         self.port = 5050
         self.lan_url = f"http://{self.lan_ip}:{self.port}"
+        self.mdns_url = f"http://{self.hostname}.local:{self.port}"
         self.tunnel_url = None
         self.current_mode = "cloudflare"  # "cloudflare" or "lan"
         self.server_url = self.lan_url
@@ -383,6 +385,7 @@ class AirFlickMainWindow(QMainWindow):
         else:
             self.server_url = self.lan_url
             self.url_label.setText(self.lan_url)
+            self.hint_label.setText(f"Same Wi-Fi • Permanent mDNS: {self.mdns_url}")
             self._generate_qr_code(self.lan_url)
 
         if hasattr(self, 'tray_icon') and self.tray_icon:
@@ -549,9 +552,13 @@ class AirFlickMainWindow(QMainWindow):
         copy_cf_action.triggered.connect(lambda: self.copy_specific_url(self.tunnel_url or self.server_url))
         tray_menu.addAction(copy_cf_action)
 
-        copy_lan_action = QAction("Copy Local Wi-Fi URL", self)
+        copy_lan_action = QAction("Copy Local Wi-Fi URL (IP)", self)
         copy_lan_action.triggered.connect(lambda: self.copy_specific_url(self.lan_url))
         tray_menu.addAction(copy_lan_action)
+
+        copy_mdns_action = QAction("Copy Permanent Local mDNS URL", self)
+        copy_mdns_action.triggered.connect(lambda: self.copy_specific_url(self.mdns_url))
+        tray_menu.addAction(copy_mdns_action)
 
         open_folder_action = QAction("Open Desktop Folder", self)
         open_folder_action.triggered.connect(lambda: open_desktop_folder(DESKTOP_DIR))
