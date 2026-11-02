@@ -5,6 +5,8 @@ import logging
 import time
 import subprocess
 import secrets
+import tempfile
+import shutil
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -23,6 +25,8 @@ log.setLevel(logging.ERROR)
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 WEB_DIR = os.path.join(PROJECT_DIR, "web")
 DESKTOP_DIR = os.path.join(os.path.expanduser("~"), "Desktop")
+CHUNK_TEMP_DIR = os.path.join(tempfile.gettempdir(), "airflick_transfers")
+os.makedirs(CHUNK_TEMP_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder=WEB_DIR)
 # 15 GB max file transfer over local Wi-Fi / hotspot
@@ -215,12 +219,12 @@ def upload_chunk_api():
         if not ext:
             ext = ".bin"
 
-        temp_part_path = os.path.join(DESKTOP_DIR, f".{transfer_id}_{base}{ext}.part")
+        temp_part_path = os.path.join(CHUNK_TEMP_DIR, f"{transfer_id}_{base}{ext}.part")
         
         mode = "wb" if chunk_index == 0 else "ab"
         with open(temp_part_path, mode) as dst:
             while True:
-                buf = chunk_file.stream.read(4 * 1024 * 1024)
+                buf = chunk_file.stream.read(1024 * 1024)
                 if not buf:
                     break
                 dst.write(buf)
@@ -234,7 +238,7 @@ def upload_chunk_api():
                     os.remove(target_path)
                 except Exception:
                     pass
-            os.rename(temp_part_path, target_path)
+            shutil.move(temp_part_path, target_path)
             bump_file_timestamp(target_path)
 
             if already_existed:
@@ -265,7 +269,7 @@ def upload_cancel_api():
     if transfer_id and filename:
         raw_filename = secure_filename(filename) or "airflick_file.bin"
         base, ext = os.path.splitext(raw_filename)
-        temp_part_path = os.path.join(DESKTOP_DIR, f".{transfer_id}_{base}{ext}.part")
+        temp_part_path = os.path.join(CHUNK_TEMP_DIR, f"{transfer_id}_{base}{ext}.part")
         if os.path.exists(temp_part_path):
             try:
                 os.remove(temp_part_path)
