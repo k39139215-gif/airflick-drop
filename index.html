@@ -1057,7 +1057,7 @@
     let activeObjectUrl = null;
 
     // Active Transfer State Machine for Pause & Cancel
-    const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks
+    const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB optimal chunks for mobile networks
     let activeTransfer = {
       id: null,
       file: null,
@@ -1068,6 +1068,7 @@
       startTime: 0,
       totalBytes: 0,
       uploadedBytes: 0,
+      retryCount: 0,
       currentXhr: null
     };
 
@@ -1289,6 +1290,12 @@
       uploadNextChunk();
     }
 
+    function isLocalEndpoint(host) {
+      return host === '127.0.0.1' || host === 'localhost' || host.endsWith('.local') ||
+             /^192\.168\./.test(host) || /^10\./.test(host) || /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host) ||
+             host.includes('trycloudflare.com') || host.includes('.loca.lt');
+    }
+
     function uploadNextChunk() {
       if (activeTransfer.isCancelled || activeTransfer.isPaused) return;
 
@@ -1297,6 +1304,21 @@
       const start = cIndex * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, file.size);
       const chunkBlob = file.slice(start, end);
+
+      let targetBase = apiBase || (isLocalEndpoint(window.location.hostname) ? window.location.origin : localStorage.getItem('airflick_api'));
+      if (!targetBase && isLocalEndpoint(window.location.hostname)) {
+        targetBase = window.location.origin;
+      }
+
+      if (!targetBase && window.location.hostname.includes('github.io')) {
+        setStatus('Connecting to Windows PC... please wait a moment', 'error');
+        resetCardPosition(true);
+        transferHud.classList.remove('visible');
+        initServerConnection().then(() => {
+          if (apiBase) setStatus('Connected to PC! Tap & flick again 🚀', 'success');
+        });
+        return;
+      }
 
       const formData = new FormData();
       formData.append('transfer_id', activeTransfer.id);
@@ -1308,8 +1330,11 @@
       const xhr = new XMLHttpRequest();
       activeTransfer.currentXhr = xhr;
 
+      // 25-second timeout per 2MB chunk prevents infinite freeze on mobile networks
+      xhr.timeout = 25000;
+
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
+        if (e.lengthComputable && !activeTransfer.isPaused && !activeTransfer.isCancelled) {
           const currentChunkSent = e.loaded;
           const totalSent = start + currentChunkSent;
           const percent = Math.min(Math.round((totalSent / file.size) * 100), 99);
@@ -1325,10 +1350,31 @@
         }
       };
 
+      const handleChunkFailure = (reason) => {
+        if (activeTransfer.isCancelled || activeTransfer.isPaused) return;
+
+        activeTransfer.retryCount = (activeTransfer.retryCount || 0) + 1;
+        if (activeTransfer.retryCount <= 3) {
+          console.warn(`Chunk ${cIndex + 1}/${activeTransfer.totalChunks} failed (${reason}), retrying attempt ${activeTransfer.retryCount}/3`);
+          hudSpeed.textContent = `Retrying chunk ${cIndex + 1}/${activeTransfer.totalChunks}...`;
+          setStatus(`Network hiccup, retrying chunk (${activeTransfer.retryCount}/3)... ⚡`, 'warning');
+          setTimeout(() => {
+            if (!activeTransfer.isCancelled && !activeTransfer.isPaused) {
+              uploadNextChunk();
+            }
+          }, 1000);
+        } else {
+          setStatus('Transfer failed: ' + reason + ' • Tap to retry', 'error');
+          resetCardPosition(true);
+          transferHud.classList.remove('visible');
+        }
+      };
+
       xhr.onload = () => {
         if (activeTransfer.isCancelled) return;
 
         if (xhr.status === 200) {
+          activeTransfer.retryCount = 0; // Reset retry counter on success
           activeTransfer.chunkIndex++;
           if (activeTransfer.chunkIndex < activeTransfer.totalChunks) {
             if (!activeTransfer.isPaused && !activeTransfer.isCancelled) {
@@ -1339,36 +1385,17 @@
             onUploadCompleted(xhr.responseText);
           }
         } else {
-          setStatus('Upload error: ' + (xhr.statusText || 'Transfer interrupted'), 'error');
-          resetCardPosition(true);
-          transferHud.classList.remove('visible');
+          handleChunkFailure(`Server HTTP ${xhr.status}`);
         }
       };
 
       xhr.onerror = () => {
-        if (activeTransfer.isCancelled) return;
-        setStatus('Network interrupted • Tap to retry', 'error');
-        transferHud.classList.remove('visible');
-        resetCardPosition(true);
+        handleChunkFailure('Network disconnected');
       };
 
-      let targetBase = apiBase || localStorage.getItem('airflick_api');
-      if (!targetBase) {
-        if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
-            window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
-          targetBase = window.location.origin;
-        }
-      }
-
-      if (!targetBase && window.location.hostname.includes('github.io')) {
-        setStatus('Connecting to Windows PC... please wait a moment', 'error');
-        resetCardPosition(true);
-        transferHud.classList.remove('visible');
-        initServerConnection().then(() => {
-          if (apiBase) setStatus('Connected to PC! Tap & flick again 🚀', 'success');
-        });
-        return;
-      }
+      xhr.ontimeout = () => {
+        handleChunkFailure('Request timed out');
+      };
 
       const endpointUrl = (targetBase ? targetBase.replace(/\/+$/, '') : '') + '/api/upload_chunk';
       xhr.open('POST', endpointUrl, true);
@@ -1492,10 +1519,9 @@
       const badgeText = document.getElementById('targetPc');
       const badgeDot = document.getElementById('islandDot') || document.querySelector('.island-dot');
 
-      if (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost' ||
-          window.location.hostname.includes('trycloudflare.com') || window.location.hostname.includes('.loca.lt')) {
+      if (isLocalEndpoint(window.location.hostname)) {
         apiBase = window.location.origin;
-        if (badgeText) badgeText.textContent = 'Connected to Windows PC';
+        if (badgeText) badgeText.textContent = 'Connected to Windows PC (Local)';
         if (badgeDot) {
           badgeDot.style.background = '#34d399';
           badgeDot.style.boxShadow = '0 0 10px #34d399';
@@ -1503,7 +1529,7 @@
         return;
       }
 
-      // 0ms instant display if cached endpoint exists
+      // Fast display if cached endpoint exists
       if (apiBase) {
         if (badgeText) badgeText.textContent = 'Connected to Windows PC';
         if (badgeDot) {
